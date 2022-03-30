@@ -22,9 +22,6 @@ class SonyRequestHandler(http.server.BaseHTTPRequestHandler):
 
     MJPEG_BOUNDS = "--boundarydonotcross"
 
-    def __str__(self):
-        return "SonyMJPGStreamer"
-
     def _root_request(self):
         """Prepare a simple HTML root page with an image tag."""
         bind, port = self.server.server_address
@@ -40,11 +37,12 @@ class SonyRequestHandler(http.server.BaseHTTPRequestHandler):
     def _mjpeg_request(self):
         """Handle a MJPEG request.
 
-        The client requests the liveview: Activate a queue to dynamically update
-        the image tag.
+        The client requests the liveview, activate a queue to update the image
+        tag.
 
         """
-        if not self.server.activate():
+        streamer = self.server.streamer
+        if not streamer.activate():
             self.send_response(http.HTTPStatus.TOO_MANY_REQUESTS)
             return
 
@@ -57,7 +55,7 @@ class SonyRequestHandler(http.server.BaseHTTPRequestHandler):
         now = then = time.time()
         while True:
             try:
-                img = self.server.get_frame()
+                img = streamer.get_frame()
                 self.wfile.write(f"--{self.MJPEG_BOUNDS}\r\n".encode())
                 self.send_header("Content-type", "image/jpeg")
                 self.send_header("Cache-Control", "no-store, no-cache, must-revalidate, pre-check=0, post-check=0, max-age=0")
@@ -67,13 +65,13 @@ class SonyRequestHandler(http.server.BaseHTTPRequestHandler):
                 self.wfile.write(img)
                 now = time.time()
                 dt = now - then
-                sec_per_frame = 1.0 / self.server.fps
+                sec_per_frame = 1.0 / streamer.fps
                 if dt < sec_per_frame:
-                    self.server.deactivate()
+                    streamer.deactivate()
                     now = time.time()
                     dt = now - then
                     time.sleep(max(0, sec_per_frame - dt))
-                    if not self.server.activate():
+                    if not streamer.activate():
                         break
                     now = time.time()
                 dt = now - then
@@ -84,7 +82,7 @@ class SonyRequestHandler(http.server.BaseHTTPRequestHandler):
                 break
             except BrokenPipeError:
                 break
-        self.server.deactivate()
+        streamer.deactivate()
 
     def do_GET(self):
         """Handle the HTTP GET request."""
@@ -99,14 +97,17 @@ class SonyRequestHandler(http.server.BaseHTTPRequestHandler):
     #     """Handle the HTTP POST request."""
 
 
-class SonyMJPGStreamer(http.server.ThreadingHTTPServer):
-    """Sony Motion JPEG Streamer server."""
+class MJPEGStreamer:
+    """Motion JPEG stream manager."""
 
-    def __init__(self,
-                 server_address, RequestHandlerClass,
-                 max_threads=2,
-                 fps=60):
-        super().__init__(server_address, RequestHandlerClass)
+    def __init__(self, max_threads=4, fps=30):
+        """Construct a new MJPEG streamer.
+
+        .. Keyword Arguments:
+        :param max_threads: Maximum number of threads. (default 4)
+        :param fps: Frame rate to aim for each client. (default 30)
+
+        """
         self.fps = fps
         self.act_threads = 0
         self.max_threads = max_threads
@@ -158,16 +159,26 @@ class SonyMJPGStreamer(http.server.ThreadingHTTPServer):
                 lifo.put(frame)
 
 
+class SonyCameraServer(http.server.ThreadingHTTPServer):
+    """Sony Motion JPEG Streamer server."""
+
+    def __init__(self, server_address, RequestHandlerClass, streamer):
+        """Create a new Sony network camera server."""
+        super().__init__(server_address, RequestHandlerClass)
+        self.streamer = streamer
+
+
 def start_mjpeg_stream(bind, port):
     """Start running a MJPEG Streamer."""
     try:
-        server = SonyMJPGStreamer((bind, port), SonyRequestHandler)
+        streamer = MJPEGStreamer()
+        server = SonyCameraServer((bind, port), SonyRequestHandler, streamer)
         SONY_SERVICE_TYPE = "urn:schemas-sony-com:service:ScalarWebAPI:1"
         disc = ssdp.SSDPDiscoverer(SONY_SERVICE_TYPE)
         dev = sony_imgdev.create_sony_imaging_device(disc)
         res = dev.camera.startLiveview()
         url = res.get("result", {})[0]
-        lv = sony_streams.LiveviewStreamThread(url, server.add_frame)
+        lv = sony_streams.LiveviewStreamThread(url, streamer.add_frame)
         lv.start()
 
         server.serve_forever()
