@@ -17,6 +17,9 @@ import sony_imgdev
 import sony_streams
 
 
+SONY_SERVICE_TYPE = "urn:schemas-sony-com:service:ScalarWebAPI:1"
+
+
 class SonyRequestHandler(http.server.BaseHTTPRequestHandler):
     """Handler for a HTTP Request for a Sony device."""
 
@@ -25,7 +28,7 @@ class SonyRequestHandler(http.server.BaseHTTPRequestHandler):
     def _root_request(self):
         """Prepare a simple HTML root page with an image tag."""
         bind, port = self.server.server_address
-        self.send_response(200)
+        self.send_response(http.HTTPStatus.OK)
         self.send_header("Content-type", "text/html")
         self.end_headers()
         self.wfile.write(b"<!DOCTYPE html>")
@@ -91,7 +94,7 @@ class SonyRequestHandler(http.server.BaseHTTPRequestHandler):
         elif self.path.endswith("liveview.mjpg"):
             self._mjpeg_request()
         elif self.path.endswith("favicon.ico"):
-            self.send_response(404)
+            self.send_response(http.HTTPStatus.NOT_FOUND)
 
     # def do_POST(self):
     #     """Handle the HTTP POST request."""
@@ -139,6 +142,7 @@ class MJPEGStreamer:
         idx = self.thread_map[tid]
         if idx < 0:
             return bytes()
+        # TODO: Add a large timeout based on FPS to handle crashed streams.
         return self.queues[idx].get()
 
     def deactivate(self):
@@ -160,12 +164,42 @@ class MJPEGStreamer:
 
 
 class SonyCameraServer(http.server.ThreadingHTTPServer):
-    """Sony Motion JPEG Streamer server."""
+    """Sony camera server."""
 
     def __init__(self, server_address, RequestHandlerClass, streamer):
         """Create a new Sony network camera server."""
         super().__init__(server_address, RequestHandlerClass)
         self.streamer = streamer
+        self.discover = ssdp.SSDPDiscoverer(SONY_SERVICE_TYPE)
+        self.devices = self._find_devices()
+        self.active_device = None
+        self.liveview = None
+        if len(self.devices) == 1:
+            self.active_device = self.devices[0]
+            self._start_liveview()
+
+    def _start_liveview(self):
+        res = self.active_device.camera.startLiveview()
+        callback = self.streamer.add_frame
+        if "result" in res:
+            url = res["result"][0]
+            self._stop_liveview()
+            self.liveview = sony_streams.LiveviewStreamThread(url, callback)
+            self.liveview.start()
+
+    def _stop_liveview(self):
+        if self.active_device and self.liveview:
+            self.liveview.exit()
+            self.liveview.join()
+
+    def _find_devices(self):
+        devices = list()
+        for rsp in self.discover.query():
+            if ("SonyImagingDevice" in rsp.get("server", "") and
+                    "location" in rsp):
+                dev = sony_imgdev.SonyImagingDevice(rsp["location"])
+                devices.append(dev)
+        return devices
 
 
 def start_mjpeg_stream(bind, port):
@@ -173,14 +207,6 @@ def start_mjpeg_stream(bind, port):
     try:
         streamer = MJPEGStreamer()
         server = SonyCameraServer((bind, port), SonyRequestHandler, streamer)
-        SONY_SERVICE_TYPE = "urn:schemas-sony-com:service:ScalarWebAPI:1"
-        disc = ssdp.SSDPDiscoverer(SONY_SERVICE_TYPE)
-        dev = sony_imgdev.create_sony_imaging_device(disc)
-        res = dev.camera.startLiveview()
-        url = res.get("result", {})[0]
-        lv = sony_streams.LiveviewStreamThread(url, streamer.add_frame)
-        lv.start()
-
         server.serve_forever()
         return 0
     except KeyboardInterrupt:
@@ -202,7 +228,7 @@ def parse_arguments(argv):
 
     """
     fmtr = argparse.RawDescriptionHelpFormatter
-    kdesc = "Local Motion JPEG streaming for the Sony Imaging Device."
+    kdesc = "Web Server for controlling a Sony Imaging Device."
     parser = argparse.ArgumentParser(description=kdesc, formatter_class=fmtr)
     parser.add_argument("-p", "--port", metavar="N", type=int,
                         default=8080,

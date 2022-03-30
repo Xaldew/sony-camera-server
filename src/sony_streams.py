@@ -134,10 +134,15 @@ class LiveviewStreamThread(threading.Thread):
         self.jpeg_cb = jpeg_callback
         self.fi_cb = frameinfo_callback
         self.daemon = True
+        self.done = False
+
+    def exit(self):
+        """Ask the thread to exit."""
+        self.done = True
 
     def run(self):
         with urllib.request.urlopen(self.lv_url) as session:
-            while True:
+            while not self.done:
                 hdr = session.read(8)
                 comhdr = common_header(hdr)
 
