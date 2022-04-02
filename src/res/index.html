@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset=UTF-8>
+    <link rel="stylesheet" href="styling.css" type="text/css">
+    <link rel="icon" href="favicon.svg" type="image/svg+xml">
+    <script src="script.js" type="text/javascript"></script>
+  </head>
+
+  <body onload="init()">
+
+    <div class="server">
+      <h1>Devices</h1>
+
+      <select name="sony-devices" id="device-select">
+        <!-- ${sony_devices} -->
+        <option value="dev0">DevName0</option>
+        <option value="dev1">DevName1</option>
+      </select>
+      <button class="server-btn" onclick="refreshDevices()" id="device-refresh">Refresh</button>
+    </div>
+
+    <div class="camera">
+
+      <div class="liveview">
+        <h2>Liveview</h2>
+        <img id="liveview" ondblclick="setLiveviewFocus(event, this)" src="liveview.mjpg" />
+      </div>
+
+      <div class="camera-mode">
+        <h2>Camera Mode</h2>
+        <div>
+          <input onclick="changeCameraMode(this)" class="camera-mode-switch" type="radio" name="mode" value="contents">Contents Transfer</input>
+        </div>
+        <div>
+          <input onclick="changeCameraMode(this)" class="camera-mode-switch" type="radio" name="mode" value="shooting">Remote Shooting</input>
+        </div>
+      </div>
+
+      <div class="camera-methods">
+        <h2>Camera Methods</h2>
+        <!-- Need to map parameters as follows: -->
+
+        <div class="method" id="method0">
+          <h3>Method0:</h3>
+
+          <!-- bool -> radio true/false -->
+          <div id="method0-param0" class="param bool">
+            <h4>Bool-Param0:</h4>
+            <span class="bool-value", on>
+              <input class="true" type="radio" name="value0">True</input>
+              <input class="false" type="radio" name="value0">False</input>
+            </span>
+          </div>
+
+          <!-- bool* -> Multiple -->
+          <!-- Star variants need javascript to create new input elements. -->
+          <div id="method0-param1" class="param bool-star">
+            <h4>Bool-Param1:</h4>
+            <span class="bool-value">
+              <input class="true" type="radio" name="value0" onfocus="addValue(this)">True</input>
+              <input class="false" type="radio" name="value0" onfocus="addValue(this)">False</input>
+            </span>
+          </div>
+
+        </div>
+
+      </div>
+
+      <div class="camera-files">
+        <h2>File tree</h2>
+
+        <ul id="filetree">
+          <li><span class="caret">Date 0</span>
+            <ul class="nested">
+              <li>Img0</li>
+              <li>Img1</li>
+              <li>Vide0</li>
+            </ul>
+          </li>
+
+          <li><span class="caret">Date 1</span>
+            <ul class="nested">
+              <li>Img0</li>
+              <li>Img1</li>
+              <li>Vide0</li>
+            </ul>
+          </li>
+        </ul>
+      </div>
+
+      <div class="camera-log">
+        <h2>Camera Log</h2>
+        <textarea readonly rows="10" cols="80" id="camera-logging-area"></textarea>
+      </div>
+
+    </div>
+
+  </body>
+</html>
