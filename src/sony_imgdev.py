@@ -103,7 +103,8 @@ class SonyEndPoint:
 
     ID_MAX = 0x7FFF_FFFF
 
-    def __init__(self, name):
+    def __init__(self, device, name):
+        self.device = device
         self.name = name
         self.id = 1
 
@@ -117,10 +118,9 @@ class SonyEndPoint:
         return ret
 
     def __getattr__(self, name):
-        def method():
-            print("Unknown endpoint method " + name)
-            return {"error": 0, "id": self.id}
-        return method
+        def unimplemented_method(*args, **kwargs):
+            return {"error": [501, "Not Implemented"], "id": self.id}
+        return unimplemented_method
 
 
 class SonyImagingDevice:
@@ -142,10 +142,10 @@ class SonyImagingDevice:
             self.device_version = version
             self.webapi = api
 
-        self.guide = SonyEndPoint("guide")
-        self.system = SonyEndPoint("system")
-        self.camera = SonyEndPoint("camera")
-        self.avContent = SonyEndPoint("avContent")
+        self.guide = SonyEndPoint(self, "guide")
+        self.system = SonyEndPoint(self, "system")
+        self.camera = SonyEndPoint(self, "camera")
+        self.avContent = SonyEndPoint(self, "avContent")
 
         # Build device methods.
         for ep in [self.guide, self.system, self.camera, self.avContent]:
