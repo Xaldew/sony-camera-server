@@ -4,6 +4,8 @@
 
 # pylint: disable=invalid-name, line-too-long
 
+import os.path
+import json
 import time
 import sys
 import argparse
@@ -20,22 +22,16 @@ import sony_streams
 SONY_SERVICE_TYPE = "urn:schemas-sony-com:service:ScalarWebAPI:1"
 
 
-class SonyRequestHandler(http.server.BaseHTTPRequestHandler):
+class SonyRequestHandler(http.server.SimpleHTTPRequestHandler):
     """Handler for a HTTP Request for a Sony device."""
 
     MJPEG_BOUNDS = "--boundarydonotcross"
 
-    def _root_request(self):
-        """Prepare a simple HTML root page with an image tag."""
-        bind, port = self.server.server_address
-        self.send_response(http.HTTPStatus.OK)
-        self.send_header("Content-type", "text/html")
-        self.end_headers()
-        self.wfile.write(b"<!DOCTYPE html>")
-        self.wfile.write(b"<html><head></head><body>")
-        msg = f"<img src={bind}:{port}/liveview.mjpg />"
-        self.wfile.write(msg.encode())
-        self.wfile.write(b"</body></html>")
+    def __init__(self, *args, **kwargs):
+        """Initialize the HTML Request handler."""
+        parent = os.path.dirname(os.path.abspath(__file__))
+        directory = os.path.join(parent, 'res')
+        super().__init__(*args, directory=directory, **kwargs)
 
     def _mjpeg_request(self):
         """Handle a MJPEG request.
@@ -89,15 +85,41 @@ class SonyRequestHandler(http.server.BaseHTTPRequestHandler):
 
     def do_GET(self):
         """Handle the HTTP GET request."""
-        if (self.path.endswith("index.html") or self.path == "/"):
-            self._root_request()
-        elif self.path.endswith("liveview.mjpg"):
+        if self.path.endswith("liveview.mjpg"):
             self._mjpeg_request()
-        elif self.path.endswith("favicon.ico"):
-            self.send_response(http.HTTPStatus.NOT_FOUND)
+        else:
+            super().do_GET()
 
-    # def do_POST(self):
-    #     """Handle the HTTP POST request."""
+    def _send_post_response(self, result):
+        self.send_response(http.HTTPStatus.OK)
+        self.send_header("Content-type", "application/json")
+        self.end_headers()
+        try:
+            self.wfile.write(json.dumps(result).encode())
+        except BrokenPipeError:
+            pass
+
+    def do_POST(self):
+        """Handle the HTTP POST request."""
+        content_length = int(self.headers['Content-Length'])
+        args = json.loads(self.rfile.read(content_length).decode())
+        if self.path.endswith("server"):
+            result = self.server._server(args)
+            self._send_post_response(result)
+        elif self.path.endswith("guide"):
+            result = self.server._guide(args)
+            self._send_post_response(result)
+        elif self.path.endswith("camera"):
+            result = self.server._camera(args)
+            self._send_post_response(result)
+        elif self.path.endswith("system"):
+            result = self.server._system(args)
+            self._send_post_response(result)
+        elif self.path.endswith("avContent"):
+            result = self.server._avContent(args)
+            self._send_post_response(result)
+        else:
+            self.send_response(http.HTTPStatus.NOT_IMPLEMENTED)
 
 
 class MJPEGStreamer:
@@ -177,6 +199,38 @@ class SonyCameraServer(http.server.ThreadingHTTPServer):
         if len(self.devices) == 1:
             self.active_device = self.devices[0]
             self._start_liveview()
+
+    def _server(self, params):
+        if not self.active_device:
+            return {"error": [404, "No Device Connected"]}
+        method = params.get("method", "")
+        if method == "getDevices":
+            devs = [d.device_name for d in self.devices]
+            return {"error": [0, "Ok"], "result": devs}
+        elif method == "refreshDevices":
+            devs = [d.device_name for d in self._find_devices()]
+            return {"error": [0, "Ok"], "result": devs}
+
+    def _system(self, params):
+        return self._method(self.active_device.system, params)
+
+    def _guide(self, params):
+        return self._method(self.active_device.guide, params)
+
+    def _camera(self, params):
+        return self._method(self.active_device.camera, params)
+
+    def _avContent(self, params):
+        return self._method(self.active_device.avContent, params)
+
+    def _method(self, endpoint, params):
+        if not self.active_device:
+            return {"error": [404, "No Device Connected"]}
+        method = params.pop("method", "")
+        if not method:
+            return {"error": [501, "Not implemented"]}
+        method = getattr(endpoint, method)
+        return method(**params)
 
     def _start_liveview(self):
         res = self.active_device.camera.startLiveview()
