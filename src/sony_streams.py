@@ -2,8 +2,10 @@
 
 """Utilities for capturing Sony Image Device media streams."""
 
+import time
 import struct
 import threading
+import http.client
 import urllib.request
 
 # pylint: disable=redefined-builtin
@@ -128,19 +130,51 @@ def payload_frameinfo(data):
 class LiveviewStreamThread(threading.Thread):
     """Thread capable of parsing the Sony binary LiveView format."""
 
-    def __init__(self, url, jpeg_callback, frameinfo_callback=lambda x: x):
+    BACKOFF = {
+        0: 1,
+        1: 2,
+        2: 4,
+        3: 8,
+        4: 16,
+    }
+    MAX_BACKOFF = 16
+
+    def __init__(self, url,
+                 jpeg_callback,
+                 frameinfo_callback=lambda x: x,
+                 fps=30):
+        """Create a new Liveview thread."""
         super().__init__()
         self.lv_url = url
         self.jpeg_cb = jpeg_callback
         self.fi_cb = frameinfo_callback
+        self.fsp = fps
         self.daemon = True
         self.done = False
+        self._cnt = 0
 
     def exit(self):
         """Ask the thread to exit."""
         self.done = True
 
     def run(self):
+        """Run the liveview grabber thread."""
+        while not self.done:
+            try:
+                self._grab_liveview()
+            except (http.client.IncompleteRead,
+                    urllib.error.HTTPError,
+                    ValueError):
+                self._backoff()
+
+    def _backoff(self):
+        """Back-off before trying to connect again."""
+        self._cnt += 1
+        sleep = self.BACKOFF.get(self._cnt, self.MAX_BACKOFF)
+        time.sleep(sleep)
+
+    def _grab_liveview(self):
+        """Attempt to grab latest liveview."""
         with urllib.request.urlopen(self.lv_url) as session:
             while not self.done:
                 hdr = session.read(8)
@@ -165,3 +199,4 @@ class LiveviewStreamThread(threading.Thread):
 
                 # Skip the padding.
                 session.read(payload['padding_size'])
+                self._cnt = 0
