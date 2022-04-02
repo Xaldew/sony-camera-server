@@ -148,7 +148,7 @@ class LiveviewStreamThread(threading.Thread):
         self.lv_url = url
         self.jpeg_cb = jpeg_callback
         self.fi_cb = frameinfo_callback
-        self.fsp = fps
+        self.fps = fps
         self.daemon = True
         self.done = False
         self._cnt = 0
@@ -176,7 +176,19 @@ class LiveviewStreamThread(threading.Thread):
     def _grab_liveview(self):
         """Attempt to grab latest liveview."""
         with urllib.request.urlopen(self.lv_url) as session:
+            now = then = time.time()
+            sec_per_frame = 1.0 / self.fps
             while not self.done:
+
+                # Check how fast we deliver frames, sleep if we're doing it
+                # faster than desired.
+                now = time.time()
+                dt = now - then
+                if dt < sec_per_frame:
+                    time.sleep(max(0, sec_per_frame - dt))
+                    now = time.time()
+                then = now
+
                 hdr = session.read(8)
                 comhdr = common_header(hdr)
 
