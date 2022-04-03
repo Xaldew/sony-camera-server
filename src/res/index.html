@@ -13,7 +13,6 @@
       <h1>Devices</h1>
 
       <select name="sony-devices" id="device-select">
-        <!-- ${sony_devices} -->
         <option value="dev0">DevName0</option>
         <option value="dev1">DevName1</option>
       </select>
@@ -22,9 +21,20 @@
 
     <div class="camera">
 
-      <div class="liveview">
-        <h2>Liveview</h2>
-        <img id="liveview" ondblclick="setLiveviewFocus(event, this)" src="liveview.mjpg" />
+      <div class="camera-main">
+        <div class="liveview">
+          <h2>Liveview</h2>
+          <img id="liveview" ondblclick="setLiveviewFocus(event, this)" src="liveview.mjpg" />
+        </div>
+
+        <div class="camera-log">
+          <h2>Camera Log</h2>
+          <div>
+            <textarea readonly rows="20" cols="100" id="camera-logging-area"></textarea>
+          </div>
+          <button onclick="prettyLog(this)">Pretty</button>
+          <button onclick="clearLog()">Clear</button>
+        </div>
       </div>
 
       <div class="camera-mode">
@@ -35,36 +45,6 @@
         <div>
           <input onclick="changeCameraMode(this)" class="camera-mode-switch" type="radio" name="mode" value="shooting">Remote Shooting</input>
         </div>
-      </div>
-
-      <div class="camera-methods">
-        <h2>Camera Methods</h2>
-        <!-- Need to map parameters as follows: -->
-
-        <div class="method" id="method0">
-          <h3>Method0:</h3>
-
-          <!-- bool -> radio true/false -->
-          <div id="method0-param0" class="param bool">
-            <h4>Bool-Param0:</h4>
-            <span class="bool-value", on>
-              <input class="true" type="radio" name="value0">True</input>
-              <input class="false" type="radio" name="value0">False</input>
-            </span>
-          </div>
-
-          <!-- bool* -> Multiple -->
-          <!-- Star variants need javascript to create new input elements. -->
-          <div id="method0-param1" class="param bool-star">
-            <h4>Bool-Param1:</h4>
-            <span class="bool-value">
-              <input class="true" type="radio" name="value0" onfocus="addValue(this)">True</input>
-              <input class="false" type="radio" name="value0" onfocus="addValue(this)">False</input>
-            </span>
-          </div>
-
-        </div>
-
       </div>
 
       <div class="camera-files">
@@ -89,9 +69,50 @@
         </ul>
       </div>
 
-      <div class="camera-log">
-        <h2>Camera Log</h2>
-        <textarea readonly rows="10" cols="80" id="camera-logging-area"></textarea>
+
+      <div id="camera-methods" style="overflow-y: auto; height: 600px;">
+
+        <template id="endpoint-template">
+          <h3>Endpoint</h3>
+        </template>
+
+        <template id="method-template">
+          <h4>Method...</h4>
+        </template>
+
+        <h2>Raw Camera Methods</h2>
+        <!-- Need to map parameters as follows: -->
+
+        <div class="endpoint">
+
+          <h3>Endpoint</h3>
+
+          <div class="method" id="method0">
+            <h4>Method0:</h4>
+
+            <!-- bool -> radio true/false -->
+            <div id="method0-param0" class="param bool">
+              <h4>Bool-Param0:</h4>
+              <span class="bool-value", on>
+                <input class="true" type="radio" name="value0">True</input>
+                <input class="false" type="radio" name="value0">False</input>
+              </span>
+            </div>
+
+            <!-- bool* -> Multiple -->
+            <!-- Star variants need javascript to create new input elements. -->
+            <div id="method0-param1" class="param bool-star">
+              <h4>Bool-Param1:</h4>
+              <span class="bool-value">
+                <input class="true" type="radio" name="value0" onfocus="addValue(this)">True</input>
+                <input class="false" type="radio" name="value0" onfocus="addValue(this)">False</input>
+              </span>
+            </div>
+
+          </div>
+
+        </div>
+
       </div>
 
     </div>

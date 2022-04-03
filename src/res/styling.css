@@ -2,6 +2,12 @@ h4 {
     display: inline;
 }
 
+#camera-logging-area {
+    overflow-x: auto;
+    overflow-y: scroll;
+    resize: none;
+}
+
 /* Remove default bullets */
 ul, #filetree {
     list-style-type: none;
