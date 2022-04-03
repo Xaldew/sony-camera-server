@@ -88,7 +88,10 @@ class SonyRequestHandler(http.server.SimpleHTTPRequestHandler):
         if self.path.endswith("liveview.mjpg"):
             self._mjpeg_request()
         else:
-            super().do_GET()
+            try:
+                super().do_GET()
+            except BrokenPipeError:
+                pass
 
     def _send_post_response(self, result):
         self.send_response(http.HTTPStatus.OK)

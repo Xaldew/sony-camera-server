@@ -185,13 +185,19 @@ class SonyImagingDevice:
             id = id()
         if callable(version):
             version = version()
+        args = dict(params, id=id, version=version)
+        if "params" not in args:
+            args["params"] = []
         req = urllib.request.Request(url)
         req.add_header('Content-Type', 'application/json; charset=utf-8')
-        body = json.dumps(dict(params, id=id, version=version)).encode("utf-8")
-        timeout = self.timeout_seconds
-        with urllib.request.urlopen(req, body, timeout=timeout) as req:
-            contents = req.read()
-            return json.loads(contents)
+        body = json.dumps(args).encode("utf-8")
+        try:
+            timeout = self.timeout_seconds
+            with urllib.request.urlopen(req, body, timeout=timeout) as req:
+                contents = req.read()
+                return json.loads(contents)
+        except urllib.error.HTTPError as err:
+            return {"error": [err.code, err.reason], "id": id}
 
 
 def create_sony_imaging_device(ssdp):
