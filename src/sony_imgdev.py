@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-"""Utilities for discovering SSDP and SonyImaging services"""
+"""Utilities for discovering SSDP and SonyImaging services."""
 
 # pylint: disable=invalid-name, redefined-builtin, no-name-in-module
 # pylint: disable=too-many-instance-attributes, too-many-locals
@@ -29,9 +29,7 @@ ScalarWebService = collections.namedtuple("ScalarWebService", ["type", "url"])
 
 
 def parse_upnp_device_definition(upnp_dd):
-    """Parse the XML device definition file.
-
-    """
+    """Parse the XML device definition file."""
     root = cElementTree.XML(upnp_dd)
     root = xml2dict.XmlDictConfig(root)
 
@@ -99,16 +97,18 @@ def parse_upnp_device_definition(upnp_dd):
 
 
 class SonyEndPoint:
-    """Sony Imaging Device EndPoint"""
+    """Sony Imaging Device EndPoint."""
 
     ID_MAX = 0x7FFF_FFFF
 
     def __init__(self, device, name):
+        """Create a new Sony Endpoint."""
         self.device = device
         self.name = name
         self.id = 1
 
     def __str__(self):
+        """Return a name describing the endpoint."""
         return f"SonyEndPoint@{self.name}"
 
     def next_id(self):
@@ -118,6 +118,7 @@ class SonyEndPoint:
         return ret
 
     def __getattr__(self, name):
+        """Call when accessing a non-existing endpoint method."""
         def unimplemented_method(*args, **kwargs):
             return {"error": [501, "Not Implemented"], "id": self.id}
         return unimplemented_method
@@ -129,6 +130,7 @@ class SonyImagingDevice:
     CNT = 0
 
     def __init__(self, location, name=None, timeout_seconds=5):
+        """Create a new Sony Imaging Device."""
         self.location = location
         self.timeout_seconds = timeout_seconds
         if not name:
@@ -168,7 +170,8 @@ class SonyImagingDevice:
                 pass
 
     def __str__(self):
-        return f"SonyImagingDevice@{self.location}"
+        """Retrieve a pretty string describing the device."""
+        return f"SonyImagingDevice:{self.device_name}@{self.location}"
 
     def request(self, endpoint, id=1, version="1.0", **params):
         """Send a request to the Imaging Device."""
