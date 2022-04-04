@@ -212,6 +212,9 @@ class SonyCameraServer(http.server.ThreadingHTTPServer):
         elif method == "refreshDevices":
             devs = [d.device_name for d in self._find_devices()]
             return {"error": [0, "Ok"], "result": devs}
+        elif method == "getEndpoints":
+            eps = self.active_device.endpoints
+            return {"error": [0, "Ok"], "result": eps}
 
     def _method(self, endpoint, params):
         if not self.active_device:

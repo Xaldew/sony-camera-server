@@ -3,27 +3,37 @@ class Camera
     constructor()
     {
         this.server = {};
-        this.guide = {};
-        this.system = {};
-        this.camera = {};
-        this.avContent = {};
-
         this.status = null;
-        this.find_methods();
         this.prettyfy = true;
+        this.endpoints = [];
+
+        this.find_endpoints();
+        this.find_methods();
+    }
+
+    find_endpoints()
+    {
+        var xhr = new XMLHttpRequest();
+        xhr.open("POST", "server", false);
+        xhr.setRequestHeader("Content-Type", "application/json");
+        let params = {
+            method: "getEndpoints",
+        };
+        xhr.send(JSON.stringify(params));
+        if (xhr.status === 200)
+        {
+            let res = JSON.parse(xhr.responseText);
+            this.endpoints = res["result"]
+        }
     }
 
     find_methods()
     {
-        var endpoints = [["guide", this.guide],
-                         ["system", this.system],
-                         ["camera", this.camera],
-                         ["avContent", this.avContent]];
         let methDiv = document.getElementById("camera-methods");
-        for (var i = 0; i < endpoints.length; i++)
+        for (var i = 0; i < this.endpoints.length; i++)
         {
-            let epName = endpoints[i][0];
-            let epObj = endpoints[i][1];
+            let epName = this.endpoints[i];
+            this[epName] = {};
             let epNode = document.createElement("div");
             epNode.id = epName;
             epNode.class = "camera-endpoint";
@@ -41,7 +51,7 @@ class Camera
             if (xhr.status === 200)
             {
                 let result = JSON.parse(xhr.responseText);
-                let methods = result["results"];
+                let methods = result["results"] || [];
                 // We need to be able to create or save this data to
                 // properly populate the interface.
                 for (var j = 0; j < methods.length; j++)
@@ -50,7 +60,7 @@ class Camera
                     let params = methods[j][1];
                     let responses = methods[j][2];
                     let version = methods[j][3];
-                    let epName = endpoints[i][0];
+                    let epName = this.endpoints[i];
 
                     // Create camera method.
                     let mNode = document.createElement("div");
@@ -69,7 +79,7 @@ class Camera
                     }
 
                     // Create a function for this method.
-                    epObj[name] = function(params = {})
+                    this[epName][name] = function(params = {})
                     {
                         var req = new XMLHttpRequest();
                         req.open("POST", epName, false);
