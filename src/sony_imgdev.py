@@ -144,6 +144,62 @@ class SonyImagingDevice:
             self.device_version = version
             self.webapi = api
 
+        self._build_endpoints()
+
+    def __str__(self):
+        """Retrieve a pretty string describing the device."""
+        return f"SonyImagingDevice:{self.device_name}@{self.location}"
+
+    def _build_endpoints(self):
+        """Initialize all endpoints."""
+        eps = self.request("guide",
+                           method="getServiceProtocols",
+                           params=[],
+                           id=1,
+                           version="1.0")
+        if "results" not in eps:
+            self._default_endpoints()
+            return
+
+        # Make sure that all endpoints are in the services list. Otherwise,
+        # create a new service and add the endpoint to the most common base-URL.
+        url_vote = collections.Counter(s.url for s in self.webapi.Services)
+        self.endpoints = []
+        for ep in eps["results"]:
+            ep_name = ep[0]
+            self.endpoints.append(ep_name)
+            found = False
+            for srv in self.webapi.Services:
+                if srv.type == ep_name:
+                    found = True
+            if not found:
+                common_url = url_vote.most_common(1)[0][0]
+                srv = ScalarWebService(ep_name, common_url)
+                self.webapi.Services.append(srv)
+
+        # Populate all endpoints with appropriate methods.
+        for ep in self.endpoints:
+            ep = SonyEndPoint(self, ep)
+            setattr(self, ep.name, ep)
+            methods = self.request(ep.name,
+                                   method="getMethodTypes",
+                                   params=[""],
+                                   id=1,
+                                   version="1.0")
+            if "results" not in methods:
+                continue
+            for arg in methods["results"]:
+                name, _params, _rsp, version = arg[0:4]
+                func = functools.partial(self.request,
+                                         ep.name,
+                                         method=name,
+                                         params=[],
+                                         id=ep.next_id,
+                                         version=version)
+                setattr(ep, name, func)
+
+    def _default_endpoints(self):
+        """Create the default endpoints."""
         self.guide = SonyEndPoint(self, "guide")
         self.system = SonyEndPoint(self, "system")
         self.camera = SonyEndPoint(self, "camera")
@@ -151,27 +207,20 @@ class SonyImagingDevice:
 
         # Build device methods.
         for ep in [self.guide, self.system, self.camera, self.avContent]:
-            try:
-                methods = self.request(ep.name,
-                                       method="getMethodTypes",
-                                       params=[""],
-                                       id=1,
-                                       version="1.0")
-                for arg in methods["results"]:
-                    name, _params, _rsp, version = arg[0:4]
-                    func = functools.partial(self.request,
-                                             ep.name,
-                                             method=name,
-                                             params=[],
-                                             id=ep.next_id,
-                                             version=version)
-                    setattr(ep, name, func)
-            except urllib.error.URLError:
-                pass
-
-    def __str__(self):
-        """Retrieve a pretty string describing the device."""
-        return f"SonyImagingDevice:{self.device_name}@{self.location}"
+            methods = self.request(ep.name,
+                                   method="getMethodTypes",
+                                   params=[""],
+                                   id=1,
+                                   version="1.0")
+            for arg in methods["results"]:
+                name, _params, _rsp, version = arg[0:4]
+                func = functools.partial(self.request,
+                                         ep.name,
+                                         method=name,
+                                         params=[],
+                                         id=ep.next_id,
+                                         version=version)
+                setattr(ep, name, func)
 
     def request(self, endpoint, id=1, version="1.0", **params):
         """Send a request to the Imaging Device."""
@@ -180,7 +229,7 @@ class SonyImagingDevice:
             if srv.type == endpoint:
                 url = os.path.join(srv.url, srv.type)
         if not url:
-            raise KeyError("No Such API call")
+            return {"error": [504, "No Such API endpoint"], "id": id}
         if callable(id):
             id = id()
         if callable(version):
@@ -195,8 +244,15 @@ class SonyImagingDevice:
             timeout = self.timeout_seconds
             with urllib.request.urlopen(req, body, timeout=timeout) as req:
                 contents = req.read()
+                # This is a hack due to a JSON bug in Sony-HDR AS50.
+                if endpoint == "accessControl" and params.get("method") == "getMethodTypes":
+                    contents = contents.replace(b",,", b",")
                 return json.loads(contents)
         except urllib.error.HTTPError as err:
+            return {"error": [err.code, err.reason], "id": id}
+        except json.decoder.JSONDecodeError:
+            return {"error": [504, "Invalid data in returned JSON"]}
+        except urllib.error.URLError as err:
             return {"error": [err.code, err.reason], "id": id}
 
 

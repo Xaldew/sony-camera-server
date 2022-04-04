@@ -106,20 +106,12 @@ class SonyRequestHandler(http.server.SimpleHTTPRequestHandler):
         """Handle the HTTP POST request."""
         content_length = int(self.headers['Content-Length'])
         args = json.loads(self.rfile.read(content_length).decode())
-        if self.path.endswith("server"):
+        ep = os.path.basename(self.path)
+        if ep == "server":
             result = self.server._server(args)
             self._send_post_response(result)
-        elif self.path.endswith("guide"):
-            result = self.server._guide(args)
-            self._send_post_response(result)
-        elif self.path.endswith("camera"):
-            result = self.server._camera(args)
-            self._send_post_response(result)
-        elif self.path.endswith("system"):
-            result = self.server._system(args)
-            self._send_post_response(result)
-        elif self.path.endswith("avContent"):
-            result = self.server._avContent(args)
+        elif self.server.is_accessible_endpoint(ep):
+            result = self.server._method(ep, args)
             self._send_post_response(result)
         else:
             self.send_response(http.HTTPStatus.NOT_IMPLEMENTED)
@@ -203,6 +195,13 @@ class SonyCameraServer(http.server.ThreadingHTTPServer):
             self.active_device = self.devices[0]
             self._start_liveview()
 
+    def is_accessible_endpoint(self, ep):
+        """Check if `ep` is an accessible endpoint."""
+        if self.active_device:
+            return ep in self.active_device.endpoints
+        else:
+            return False
+
     def _server(self, params):
         if not self.active_device:
             return {"error": [404, "No Device Connected"]}
@@ -214,25 +213,14 @@ class SonyCameraServer(http.server.ThreadingHTTPServer):
             devs = [d.device_name for d in self._find_devices()]
             return {"error": [0, "Ok"], "result": devs}
 
-    def _system(self, params):
-        return self._method(self.active_device.system, params)
-
-    def _guide(self, params):
-        return self._method(self.active_device.guide, params)
-
-    def _camera(self, params):
-        return self._method(self.active_device.camera, params)
-
-    def _avContent(self, params):
-        return self._method(self.active_device.avContent, params)
-
     def _method(self, endpoint, params):
         if not self.active_device:
             return {"error": [404, "No Device Connected"]}
         method = params.pop("method", "")
         if not method:
             return {"error": [501, "Not implemented"]}
-        method = getattr(endpoint, method)
+        ep = getattr(self.active_device, endpoint)
+        method = getattr(ep, method)
         return method(**params)
 
     def _start_liveview(self):
