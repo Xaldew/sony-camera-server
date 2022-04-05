@@ -5,6 +5,7 @@
 # pylint: disable=invalid-name, redefined-builtin, no-name-in-module
 # pylint: disable=too-many-instance-attributes, too-many-locals
 
+import re
 import os
 import collections
 import urllib.request
@@ -111,6 +112,7 @@ class SonyImagingDevice:
         """Create a new Sony Imaging Device."""
         self.location = location
         self.timeout_seconds = timeout_seconds
+        self.endpoints = {}
         if not name:
             self.name = f"Sony{SonyImagingDevice.CNT}"
             SonyImagingDevice.CNT += 1
@@ -142,10 +144,10 @@ class SonyImagingDevice:
         # Make sure that all endpoints are in the services list. Otherwise,
         # create a new service and add the endpoint to the most common base-URL.
         url_vote = collections.Counter(s.url for s in self.webapi.Services)
-        self.endpoints = []
+        self.endpoints = {}
         for ep in eps["results"]:
             ep_name = ep[0]
-            self.endpoints.append(ep_name)
+            self.endpoints[ep_name] = {}
             found = False
             for srv in self.webapi.Services:
                 if srv.type == ep_name:
@@ -156,7 +158,8 @@ class SonyImagingDevice:
                 self.webapi.Services.append(srv)
 
         # Populate all endpoints with appropriate methods.
-        for ep in self.endpoints:
+        params = {}
+        for ep, me in self.endpoints.items():
             ep = SonyEndPoint(self, ep)
             setattr(self, ep.name, ep)
             methods = self.request(ep.name,
@@ -166,8 +169,11 @@ class SonyImagingDevice:
                                    version="1.0")
             if "results" not in methods:
                 continue
+            params[ep.name] = {}
             for arg in methods["results"]:
-                name, _params, _rsp, version = arg[0:4]
+                name, prms, _rsp, version = arg[0:4]
+                me[name] = {}
+                params[ep.name][name] = prms
                 func = functools.partial(self.request,
                                          ep.name,
                                          method=name,
@@ -175,6 +181,110 @@ class SonyImagingDevice:
                                          id=ep.next_id,
                                          version=version)
                 setattr(ep, name, func)
+
+        # Populate the method sets with all supported parameters.
+        for ep, methods in self.endpoints.items():
+            for meth, rsp in methods.items():
+                prm = params[ep][meth]
+                rsp.update(self._parse_arg_spec(prm, ep, meth, methods))
+
+    def _parse_arg_spec(self, prms, ep, meth, methods):
+        """Parse the camera method argument specification."""
+        args = {}
+        i = 0
+        VALID_TYPES = ["bool", "int", "double", "string"]
+        opts = self._find_options(methods, ep, meth)
+
+        # ExposureCompensation uses a range metric instead of the regular
+        # scheme so compute all options:
+        if meth == "setExposureCompensation":
+            if opts:
+                maxi, mini, step = opts[:]
+                evs = set()
+                for mn, mx, s in zip(step, mini, maxi):
+                    evs |= set(range(mn, mx + 1, s))
+                args["EV"] = {"int": sorted(evs)}
+            else:
+                args["EV"] = {"int": ""}
+            return args
+        elif meth == "setWhiteBalance":
+            if opts:
+                wbms = []
+                cts = set()
+                for obj in opts[0]:
+                    wbms.append(obj["whiteBalanceMode"])
+                    if obj["colorTemperatureRange"]:
+                        mx, mn, step = obj["colorTemperatureRange"]
+                        cts |= set(range(mn, mx + 1, step))
+                args["WhiteBalanceMode"] = {"string": wbms}
+                args["ColorTempEnable"] = {"bool": ""}
+                args["ColorTemp"] = {"int": sorted(cts)}
+            else:
+                args["WhiteBalanceMode"] = {"string": ""}
+                args["ColorTempEnable"] = {"bool": ""}
+                args["ColorTemp"] = {"int": ""}
+                return args
+
+        for a in prms:
+            if a in VALID_TYPES or a[0:-1] in VALID_TYPES:
+                if opts:
+                    args[f"arg{i}"] = {a: opts[0]}
+                else:
+                    args[f"arg{i}"] = {a: ""}
+                i += 1
+            elif a.endswith("*"):
+                # Multiple freely specified arguments. This is tricky to
+                # support, so just present as a generic JSON.
+                args[f"arg{i}"] = {"JSON*": ""}
+                i += 1
+            else:
+                # Possibly multiple named arguments, attempt to decode JSON:
+                try:
+                    spec = json.loads(a)
+                    if not opts:
+                        # No candidates found from getSupportedXXX(). If
+                        # additional nesting is found, the argument is
+                        # converted to a generic JSON input.
+                        def isnested(x):
+                            return isinstance(x, list) or isinstance(x, dict)
+                        if any(isnested(x) for x in spec.values()):
+                            args[f"arg{i}"] = {"JSON": ""}
+                            i += 1
+                        else:
+                            for k, v in spec.items():
+                                if v in VALID_TYPES or v[0:-1] in VALID_TYPES:
+                                    args[k] = {v: ""}
+                                else:
+                                    is_star = v.endswith("*")
+                                    v = "string" + "*" if is_star else ""
+                                    args[k] = {v: ""}
+                                i += 1
+                    else:
+                        # Candidates exist - attempt to merge.
+                        for k, v in spec.items():
+                            args[k] = {v: opts[0].get("candidate", "")}
+                except json.decoder.JSONDecodeError:
+                    # Failed to decode argspec. Present as generic JSON.
+                    args[f"arg{i}"] = {"JSON": ""}
+                    i += 1
+        return args
+
+    def _find_options(self, methods, ep, method):
+        """Find valid options for the given method and endpoint."""
+        m = re.sub("^(set)", "", method, count=1)
+        sup = "getSupported" + m
+        if method.startswith("set") and sup in methods:
+            epo = getattr(self, ep)
+            sup = getattr(epo, sup)
+            rsp = sup(params=[])
+            if "result" in rsp:
+                return rsp["result"]
+            elif "results" in rsp:
+                return rsp["results"]
+            else:
+                return []
+        else:
+            return []
 
     def _default_endpoints(self):
         """Create the default endpoints."""
