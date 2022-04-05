@@ -23,16 +23,16 @@ class Camera
         if (xhr.status === 200)
         {
             let res = JSON.parse(xhr.responseText);
-            this.endpoints = res["result"]
+            this.endpoints = res["result"];
+            console.log(this.endpoints);
         }
     }
 
     find_methods()
     {
         let methDiv = document.getElementById("camera-methods");
-        for (var i = 0; i < this.endpoints.length; i++)
+        for (let [epName, methods] of Object.entries(this.endpoints))
         {
-            let epName = this.endpoints[i];
             this[epName] = {};
             let epNode = document.createElement("div");
             epNode.id = epName;
@@ -40,61 +40,42 @@ class Camera
             epNode.innerHTML = "<h3>" + epName + "</h3>";
             methDiv.appendChild(epNode);
 
-            var xhr = new XMLHttpRequest();
-            xhr.open("POST", epName, false);
-            xhr.setRequestHeader("Content-Type", "application/json");
-            let params = {
-                method: "getMethodTypes",
-                params: [""],
-            };
-            xhr.send(JSON.stringify(params));
-            if (xhr.status === 200)
+            // Populate the camera with function calls and the UI with the
+            // toggles according to the spec.
+            for (let [method, spec] of Object.entries(methods))
             {
-                let result = JSON.parse(xhr.responseText);
-                let methods = result["results"] || [];
-                // We need to be able to create or save this data to
-                // properly populate the interface.
-                for (var j = 0; j < methods.length; j++)
+                // Create a function for this method.
+                this[epName][method] = function(params = {})
                 {
-                    let name = methods[j][0];
-                    let params = methods[j][1];
-                    let responses = methods[j][2];
-                    let version = methods[j][3];
-                    let epName = this.endpoints[i];
-
-                    // Create camera method.
-                    let mNode = document.createElement("div");
-                    mNode.id = name;
-                    mNode.class = "camera-method";
-                    mNode.endpoint = epName;
-                    mNode.innerHTML = "<h4>" + name + "(v" + version + ")" + "</h4>";
-                    mNode.innerHTML += "<button onclick=submitCameraMethod(this.parentNode)>Submit</button>";
-                    epNode.appendChild(mNode);
-
-                    // Create parameter toggles.
-                    for (var k = 0; k < params.length; k++)
+                    var req = new XMLHttpRequest();
+                    req.open("POST", epName, false);
+                    req.setRequestHeader("Content-Type", "application/json");
+                    params["method"] = method;
+                    req.send(JSON.stringify(params));
+                    if (req.status === 200)
                     {
-                        let pNode = createParameterNode(params[k]);
-                        mNode.appendChild(pNode);
+                        return JSON.parse(req.responseText);
                     }
-
-                    // Create a function for this method.
-                    this[epName][name] = function(params = {})
+                    else
                     {
-                        var req = new XMLHttpRequest();
-                        req.open("POST", epName, false);
-                        req.setRequestHeader("Content-Type", "application/json");
-                        params["method"] = name;
-                        req.send(JSON.stringify(params));
-                        if (req.status === 200)
-                        {
-                            return JSON.parse(req.responseText);
-                        }
-                        else
-                        {
-                            return {};
-                        }
+                        return {};
                     }
+                }
+
+                // Create camera method.
+                let mNode = document.createElement("div");
+                mNode.id = method;
+                mNode.class = "camera-method";
+                mNode.endpoint = epName;
+                mNode.innerHTML = "<h4>" + method + "</h4>";
+                mNode.innerHTML += "<button onclick=submitCameraMethod(this.parentNode)>Submit</button>";
+                epNode.appendChild(mNode);
+
+                // Create parameter toggles.
+                for (let [type, opts] of Object.entries(spec))
+                {
+                    let pNode = createParameterNode(type, opts);
+                    mNode.appendChild(pNode);
                 }
             }
         }
@@ -324,56 +305,49 @@ function clearLog()
 }
 
 
-function createParameterNode(params)
+function createParameterNode(type, opts)
 {
     let pNode = document.createElement("div");
     pNode.class = "camera-param";
-    if (params === "bool")
+    if (type === "bool")
     {
         pNode.innerHTML += "bool";
     }
-    else if (params === "bool*")
+    else if (type === "bool*")
     {
         pNode.innerHTML += "bool*";
     }
-    else if (params === "int")
+    else if (type === "int")
     {
         pNode.innerHTML += "int";
     }
-    else if (params === "int*")
+    else if (type === "int*")
     {
         pNode.innerHTML += "int*";
     }
-    else if (params === "double")
+    else if (type === "double")
     {
         pNode.innerHTML += "double";
     }
-    else if (params === "double*")
+    else if (type === "double*")
     {
         pNode.innerHTML += "double*";
     }
-    else if (params == "string")
+    else if (type == "string")
     {
         pNode.innerHTML += "string";
     }
-    else if (params == "string*")
+    else if (type == "string*")
     {
         pNode.innerHTML += "string*";
     }
-    else
+    else if (type == "JSON")
     {
-        let multiple = false;
-        if (params.endsWith("*"))
-        {
-            multiple = true;
-            params = params.slice(0, params.length - 1);
-        }
-        // JSON object types.
-        let ents = JSON.parse(params);
-        for (let [k, v] of Object.entries(ents))
-        {
-            pNode.innerHTML += k + " : " + v + "</br>";
-        }
+        pNode.innerHTML += "JSON";
+    }
+    else if (type == "JSON*")
+    {
+        pNode.innerHTML += "JSON*";
     }
 
     return pNode;
