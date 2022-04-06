@@ -200,12 +200,13 @@ class SonyImagingDevice:
         if meth == "setExposureCompensation":
             if opts:
                 maxi, mini, step = opts[:]
+                print(maxi, mini, step)
                 evs = set()
-                for mn, mx, s in zip(step, mini, maxi):
+                for mn, mx, s in zip(mini, maxi, step):
                     evs |= set(range(mn, mx + 1, s))
-                args["EV"] = {"int": sorted(evs)}
+                args["EV"] = {"type": "int", "options": sorted(evs)}
             else:
-                args["EV"] = {"int": ""}
+                args["EV"] = {"type": "int", "options": []}
             return args
         elif meth == "setWhiteBalance":
             if opts:
@@ -216,26 +217,27 @@ class SonyImagingDevice:
                     if obj["colorTemperatureRange"]:
                         mx, mn, step = obj["colorTemperatureRange"]
                         cts |= set(range(mn, mx + 1, step))
-                args["WhiteBalanceMode"] = {"string": wbms}
-                args["ColorTempEnable"] = {"bool": ""}
-                args["ColorTemp"] = {"int": sorted(cts)}
+                args["WhiteBalanceMode"] = {"type": "string", "options": wbms}
+                args["ColorTempEnable"] = {"type": "bool", "options": []}
+                args["ColorTemp"] = {"type": "int", "options": sorted(cts)}
+                return args
             else:
-                args["WhiteBalanceMode"] = {"string": ""}
-                args["ColorTempEnable"] = {"bool": ""}
-                args["ColorTemp"] = {"int": ""}
+                args["WhiteBalanceMode"] = {"type": "string", "options": []}
+                args["ColorTempEnable"] = {"type": "bool", "options": []}
+                args["ColorTemp"] = {"type": "int", "options": []}
                 return args
 
         for a in prms:
             if a in VALID_TYPES or a[0:-1] in VALID_TYPES:
                 if opts:
-                    args[f"arg{i}"] = {a: opts[0]}
+                    args[f"arg{i}"] = {"type": a, "options": opts[0]}
                 else:
-                    args[f"arg{i}"] = {a: ""}
+                    args[f"arg{i}"] = {"type": a, "options": []}
                 i += 1
             elif a.endswith("*"):
                 # Multiple freely specified arguments. This is tricky to
                 # support, so just present as a generic JSON.
-                args[f"arg{i}"] = {"JSON*": ""}
+                args[f"arg{i}"] = {"type": "JSON*", "options": []}
                 i += 1
             else:
                 # Possibly multiple named arguments, attempt to decode JSON:
@@ -248,24 +250,25 @@ class SonyImagingDevice:
                         def isnested(x):
                             return isinstance(x, list) or isinstance(x, dict)
                         if any(isnested(x) for x in spec.values()):
-                            args[f"arg{i}"] = {"JSON": ""}
+                            args[f"arg{i}"] = {"type": "JSON", "options": []}
                             i += 1
                         else:
                             for k, v in spec.items():
                                 if v in VALID_TYPES or v[0:-1] in VALID_TYPES:
-                                    args[k] = {v: ""}
+                                    args[k] = {"type": v, "options": []}
                                 else:
                                     is_star = v.endswith("*")
                                     v = "string" + "*" if is_star else ""
-                                    args[k] = {v: ""}
+                                    args[k] = {"type": v, "options": []}
                                 i += 1
                     else:
                         # Candidates exist - attempt to merge.
                         for k, v in spec.items():
-                            args[k] = {v: opts[0].get("candidate", "")}
+                            opt = opts[0].get("candidate", [])
+                            args[k] = {"type": v, "options": opt}
                 except json.decoder.JSONDecodeError:
                     # Failed to decode argspec. Present as generic JSON.
-                    args[f"arg{i}"] = {"JSON": ""}
+                    args[f"arg{i}"] = {"type": "JSON", "options": []}
                     i += 1
         return args
 
