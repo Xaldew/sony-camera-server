@@ -1,5 +1,26 @@
+.column {
+    float: left;
+}
+
+.left {
+    width: 20%;
+}
+
+.middle {
+    width: 50%;
+}
+
+.right {
+    width: 30%;
+}
+
 h4 {
     display: inline;
+}
+
+label {
+    display: inline-block;
+    width: 200px;
 }
 
 #camera-logging-area {
