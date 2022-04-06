@@ -42,7 +42,7 @@ class Camera
 
             // Populate the camera with function calls and the UI with the
             // toggles according to the spec.
-            for (let [method, spec] of Object.entries(methods))
+            for (let [method, args] of Object.entries(methods))
             {
                 // Create a function for this method.
                 this[epName][method] = function(params = {})
@@ -68,13 +68,15 @@ class Camera
                 mNode.class = "camera-method";
                 mNode.endpoint = epName;
                 mNode.innerHTML = "<h4>" + method + "</h4>";
-                mNode.innerHTML += "<button onclick=submitCameraMethod(this.parentNode)>Submit</button>";
+                // mNode.innerHTML += "<button onclick=submitCameraMethod(this.parentNode)>Submit</button>";
                 epNode.appendChild(mNode);
 
                 // Create parameter toggles.
-                for (let [type, opts] of Object.entries(spec))
+                for (let [name, spec] of Object.entries(args))
                 {
-                    let pNode = createParameterNode(type, opts);
+                    let type = spec["type"];
+                    let opts = spec["options"];
+                    let pNode = createParameterNode(name, type, opts);
                     mNode.appendChild(pNode);
                 }
             }
@@ -305,49 +307,95 @@ function clearLog()
 }
 
 
-function createParameterNode(type, opts)
+function createParameterNode(name, type, opts)
 {
     let pNode = document.createElement("div");
     pNode.class = "camera-param";
-    if (type === "bool")
+    pNode.id = name;
+    if (type.startsWith("bool"))
     {
-        pNode.innerHTML += "bool";
+        var toggle = document.createElement("input");
+        toggle.type = "checkbox";
+        toggle.id = name;
+        toggle.name = name;
+        toggle.value = name;
+
+        var lbl = document.createElement("label");
+        lbl.htmlFor = name;
+        lbl.appendChild(document.createTextNode(name));
+        // if (opts.length)
+        // {
+        //     toggle.checked = true;
+        // }
+        pNode.appendChild(lbl);
+        pNode.appendChild(toggle);
     }
-    else if (type === "bool*")
+    else if (type.startsWith("int") ||
+             type.startsWith("double"))
     {
-        pNode.innerHTML += "bool*";
+        var toggle = document.createElement("input");
+        toggle.type = "number";
+        toggle.id = name;
+        toggle.name = name;
+
+        var lbl = document.createElement("label");
+        lbl.htmlFor = name;
+        lbl.appendChild(document.createTextNode(name));
+
+        if (opts.length > 0)
+        {
+            var datalist = document.createElement("datalist");
+            datalist.id = name + "-data";
+            for (const e of opts)
+            {
+                var o = document.createElement("option");
+                o.value = e;
+                datalist.appendChild(o);
+            }
+            pNode.appendChild(datalist);
+            toggle.setAttribute("list", name + "-data");
+            toggle.min = Math.min.apply(Math, opts);
+            toggle.max = Math.max.apply(Math, opts);
+        }
+        pNode.appendChild(lbl);
+        pNode.appendChild(toggle);
     }
-    else if (type === "int")
+    else if (type.startsWith("string"))
     {
-        pNode.innerHTML += "int";
+        var toggle = document.createElement("input");
+        toggle.type = "text";
+        toggle.id = name;
+        toggle.name = name;
+
+        var lbl = document.createElement("label");
+        lbl.htmlFor = name;
+        lbl.appendChild(document.createTextNode(name));
+
+        if (opts.length > 0)
+        {
+            var datalist = document.createElement("datalist");
+            datalist.id = name + "-data";
+            for (const e of opts)
+            {
+                var o = document.createElement("option");
+                o.value = e;
+                datalist.appendChild(o);
+            }
+            pNode.appendChild(datalist);
+            toggle.setAttribute("list", name + "-data");
+        }
+        pNode.appendChild(lbl);
+        pNode.appendChild(toggle);
     }
-    else if (type === "int*")
+    else if (type.startsWith("JSON"))
     {
-        pNode.innerHTML += "int*";
+        pNode.innerHTML += "JSON - TODO";
     }
-    else if (type === "double")
+
+    // Add functions to add input values.
+    if (type.endsWith("*"))
     {
-        pNode.innerHTML += "double";
-    }
-    else if (type === "double*")
-    {
-        pNode.innerHTML += "double*";
-    }
-    else if (type == "string")
-    {
-        pNode.innerHTML += "string";
-    }
-    else if (type == "string*")
-    {
-        pNode.innerHTML += "string*";
-    }
-    else if (type == "JSON")
-    {
-        pNode.innerHTML += "JSON";
-    }
-    else if (type == "JSON*")
-    {
-        pNode.innerHTML += "JSON*";
+        // TODO.
     }
 
     return pNode;
