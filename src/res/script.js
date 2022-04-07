@@ -42,15 +42,16 @@ class Camera
 
             // Populate the camera with function calls and the UI with the
             // toggles according to the spec.
-            for (let [method, args] of Object.entries(methods))
+            for (let [method, responses] of Object.entries(methods))
             {
                 // Create a function for this method.
-                this[epName][method] = function(params = {})
+                this[epName][method] = function(args = [])
                 {
                     var req = new XMLHttpRequest();
                     req.open("POST", epName, false);
                     req.setRequestHeader("Content-Type", "application/json");
-                    params["method"] = method;
+                    var params = {method: method, params: args};
+                    console.log(params);
                     req.send(JSON.stringify(params));
                     if (req.status === 200)
                     {
@@ -73,11 +74,13 @@ class Camera
                 epNode.appendChild(mNode);
 
                 // Create parameter toggles.
+                let args = responses["parameters"];
+                mNode.expects = responses["expects"];
                 for (let [name, spec] of Object.entries(args))
                 {
                     let type = spec["type"];
                     let opts = spec["options"];
-                    let pNode = createParameterNode(name, type, opts);
+                    let pNode = createParameterNode(method, name, type, opts);
                     mNode.appendChild(pNode);
                 }
 
@@ -270,21 +273,6 @@ function updateFileTree()
 
 function getFiles()
 {
-    {
-        var xhr = new XMLHttpRequest();
-        xhr.open("POST", "avContent", false);
-        xhr.setRequestHeader("Content-Type", "application/json");
-        let params = {
-            method: ""
-        };
-    }
-
-    var xhr = new XMLHttpRequest();
-    xhr.open("POST", "avContent", true);
-    xhr.setRequestHeader('Content-Type', 'application/json');
-    let value = {
-        method: "getCameraFunction",
-    };
 }
 
 
@@ -321,7 +309,7 @@ function clearLog()
 }
 
 
-function createParameterNode(name, type, opts)
+function createParameterNode(method, name, type, opts)
 {
     let pNode = document.createElement("div");
     pNode.className = "camera-param";
@@ -336,6 +324,7 @@ function createParameterNode(name, type, opts)
         toggle.id = name;
         toggle.name = name;
         toggle.value = name;
+        toggle.value_type = "bool";
 
         var lbl = document.createElement("label");
         lbl.htmlFor = name;
@@ -355,6 +344,15 @@ function createParameterNode(name, type, opts)
         toggle.id = name;
         toggle.name = name;
 
+        if (type.startsWith("int"))
+        {
+            toggle.value_type = "int";
+        }
+        else
+        {
+            toggle.value_type = "double";
+        }
+
         var lbl = document.createElement("label");
         lbl.htmlFor = name;
         lbl.appendChild(document.createTextNode(name));
@@ -362,7 +360,7 @@ function createParameterNode(name, type, opts)
         if (opts.length > 0)
         {
             var datalist = document.createElement("datalist");
-            datalist.id = name + "-data";
+            datalist.id = method + "-" + name + "-data";
             for (const e of opts)
             {
                 var o = document.createElement("option");
@@ -370,7 +368,7 @@ function createParameterNode(name, type, opts)
                 datalist.appendChild(o);
             }
             pNode.appendChild(datalist);
-            toggle.setAttribute("list", name + "-data");
+            toggle.setAttribute("list", datalist.id);
             toggle.min = Math.min.apply(Math, opts);
             toggle.max = Math.max.apply(Math, opts);
         }
@@ -383,6 +381,7 @@ function createParameterNode(name, type, opts)
         toggle.type = "text";
         toggle.id = name;
         toggle.name = name;
+        toggle.value_type = "string";
 
         var lbl = document.createElement("label");
         lbl.htmlFor = name;
@@ -391,7 +390,7 @@ function createParameterNode(name, type, opts)
         if (opts.length > 0)
         {
             var datalist = document.createElement("datalist");
-            datalist.id = name + "-data";
+            datalist.id = method + "-" + name + "-data";
             for (const e of opts)
             {
                 var o = document.createElement("option");
@@ -399,7 +398,7 @@ function createParameterNode(name, type, opts)
                 datalist.appendChild(o);
             }
             pNode.appendChild(datalist);
-            toggle.setAttribute("list", name + "-data");
+            toggle.setAttribute("list", datalist.id);
         }
         iNode.appendChild(lbl);
         iNode.appendChild(toggle);
@@ -410,6 +409,7 @@ function createParameterNode(name, type, opts)
         toggle.type = "text";
         toggle.id = name;
         toggle.name = name;
+        toggle.value_type = "JSON";
 
         var lbl = document.createElement("label");
         lbl.htmlFor = name;
@@ -470,8 +470,41 @@ function submitCameraMethod(method)
 {
     // Collect all parameters, then call the appropriate method.
     let ep = method.endpoint;
-    let res = camera[ep][method.id]();
+    let method_fn = camera[ep][method.id];
+    let params = method.querySelectorAll(".parameter input");
+
+    var res = {};
+    if (method.expects === "object")
+    {
+        // Expects a list of objects.
+        let args = {};
+        for (const p of params)
+        {
+            if (p.value)
+            {
+                args[p.id] = getParameterValue(p);
+            }
+        }
+        res = method_fn([args]);
+    }
+    else if (method.expects == "list")
+    {
+        // Expects a list of arguments.
+        let args = [];
+        for (const p of params)
+        {
+            args.push(getParameterValue(p));
+        }
+        res = method_fn(args);
+    }
+    else
+    {
+        // Expects no parameters.
+        res = method_fn();
+    }
+
     log(method.id + ":");
+    // call with args and present the results.
     if (camera.prettyfy)
     {
         log(JSON.stringify(res, null, 4));
@@ -479,5 +512,24 @@ function submitCameraMethod(method)
     else
     {
         log(JSON.stringify(res));
+    }
+}
+
+function getParameterValue(p)
+{
+    if (p.value_type == "bool")
+    {
+        return p.checked;
+    }
+    else if (p.value_type == "int")
+    {
+        return parseInt(p.value);
+    }
+    else if (p.value_type == "double")
+    {
+        return parseFloat(p.value);
+    }
+    {
+        return p.value;
     }
 }
