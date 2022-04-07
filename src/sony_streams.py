@@ -164,6 +164,7 @@ class LiveviewStreamThread(threading.Thread):
                 self._grab_liveview()
             except (http.client.IncompleteRead,
                     urllib.error.HTTPError,
+                    urllib.error.URLError,
                     ValueError):
                 self._backoff()
 
