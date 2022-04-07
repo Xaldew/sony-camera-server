@@ -108,6 +108,11 @@ class SonyImagingDevice:
 
     CNT = 0
 
+    SPECIAL_METHODS = {
+        "setExposureCompensation",
+        "setWhiteBalance",
+    }
+
     def __init__(self, location, name=None, timeout_seconds=5):
         """Create a new Sony Imaging Device."""
         self.location = location
@@ -186,21 +191,20 @@ class SonyImagingDevice:
         for ep, methods in self.endpoints.items():
             for meth, rsp in methods.items():
                 prm = params[ep][meth]
-                rsp.update(self._parse_arg_spec(prm, ep, meth, methods))
+                opts = self._find_options(methods, ep, meth)
+                if meth in self.SPECIAL_METHODS:
+                    rsp.update(self._special_method_spec(prms, ep, meth, opts))
+                else:
+                    rsp.update(self._parse_arg_spec(prm, ep, meth, opts))
 
-    def _parse_arg_spec(self, prms, ep, meth, methods):
-        """Parse the camera method argument specification."""
-        args = {}
-        i = 0
-        VALID_TYPES = ["bool", "int", "double", "string"]
-        opts = self._find_options(methods, ep, meth)
-
+    def _special_method_spec(self, prms, ep, meth, opts):
+        """Generate the specification entry for specific methods."""
         # ExposureCompensation uses a range metric instead of the regular
         # scheme so compute all options:
+        args = {}
         if meth == "setExposureCompensation":
             if opts:
                 maxi, mini, step = opts[:]
-                print(maxi, mini, step)
                 evs = set()
                 for mn, mx, s in zip(mini, maxi, step):
                     evs |= set(range(mn, mx + 1, s))
@@ -227,6 +231,11 @@ class SonyImagingDevice:
                 args["ColorTemp"] = {"type": "int", "options": []}
                 return args
 
+    def _parse_arg_spec(self, prms, ep, meth, opts):
+        """Parse the camera method argument specification."""
+        args = {}
+        i = 0
+        VALID_TYPES = ["bool", "int", "double", "string"]
         for a in prms:
             if a in VALID_TYPES or a[0:-1] in VALID_TYPES:
                 if opts:
