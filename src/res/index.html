@@ -54,10 +54,10 @@
         <div class="camera-mode">
           <h2>Camera Mode</h2>
           <div>
-            <input onclick="changeCameraMode(this)" class="camera-mode-switch" type="radio" name="mode" value="contents">Contents Transfer</input>
+            <input onclick="changeCameraMode(this)" class="camera-mode-switch" type="radio" name="mode" value="contents">Contents Transfer
           </div>
           <div>
-            <input onclick="changeCameraMode(this)" class="camera-mode-switch" type="radio" name="mode" value="shooting">Remote Shooting</input>
+            <input onclick="changeCameraMode(this)" class="camera-mode-switch" type="radio" name="mode" value="shooting">Remote Shooting
           </div>
         </div>
 
@@ -74,41 +74,10 @@
       <div class="column right">
 
         <div id="camera-methods" style="overflow-y: auto; height: 800px;">
-
           <h2>Raw Camera Methods</h2>
-          <!-- Need to map parameters as follows: -->
-
-          <div class="endpoint">
-
-            <h3>Endpoint</h3>
-
-            <div class="method" id="method0">
-              <h4>Method0:</h4>
-
-              <!-- bool -> radio true/false -->
-              <div id="method0-param0" class="param bool">
-                <h4>Bool-Param0:</h4>
-                <span class="bool-value", on>
-                  <input class="true" type="radio" name="value0">True</input>
-                  <input class="false" type="radio" name="value0">False</input>
-                </span>
-              </div>
-
-              <!-- bool* -> Multiple -->
-              <!-- Star variants need javascript to create new input elements. -->
-              <div id="method0-param1" class="param bool-star">
-                <h4>Bool-Param1:</h4>
-                <span class="bool-value">
-                  <input class="true" type="radio" name="value0" onfocus="addValue(this)">True</input>
-                  <input class="false" type="radio" name="value0" onfocus="addValue(this)">False</input>
-                </span>
-              </div>
-
-            </div>
-          </div>
         </div>
       </div>
-    </div>
 
+    </div>
   </body>
 </html>
