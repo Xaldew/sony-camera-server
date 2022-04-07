@@ -76,7 +76,7 @@ class SonyRequestHandler(http.server.SimpleHTTPRequestHandler):
                 dt = now - then
                 then = now
                 # print(f"Frametime: {dt:8.5} s ({1.0/dt:5.1f} fps)", end="\r")
-            except KeyboardInterrupt:
+            except (KeyboardInterrupt, queue.Empty):
                 self.wfile.write(f"--{self.MJPEG_BOUNDS}--\r\n".encode())
                 break
             except BrokenPipeError:
@@ -159,8 +159,9 @@ class MJPEGStreamer:
         idx = self.thread_map[tid]
         if idx < 0:
             return bytes()
-        # TODO: Add a large timeout based on FPS to handle crashed streams.
-        return self.queues[idx].get()
+        # Timeout based on FPS to handle crashed stream or devices.
+        frame_time = 1.0 / self.fps
+        return self.queues[idx].get(block=True, timeout=100*frame_time)
 
     def deactivate(self):
         """Deactivate the queues associated with the calling thread."""
