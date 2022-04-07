@@ -65,10 +65,11 @@ class Camera
                 // Create camera method.
                 let mNode = document.createElement("div");
                 mNode.id = method;
-                mNode.class = "camera-method";
+                mNode.className = "camera-method";
                 mNode.endpoint = epName;
-                mNode.innerHTML = "<h4>" + method + "</h4>";
-                // mNode.innerHTML += "<button onclick=submitCameraMethod(this.parentNode)>Submit</button>";
+                let title = document.createElement("h4");
+                title.innerText = method;
+                mNode.appendChild(title);
                 epNode.appendChild(mNode);
 
                 // Create parameter toggles.
@@ -79,6 +80,19 @@ class Camera
                     let pNode = createParameterNode(name, type, opts);
                     mNode.appendChild(pNode);
                 }
+
+                let submit = document.createElement("button");
+                let lbl = document.createElement("label");
+                submit.className = method + "-submit";
+                submit.onclick = function() { submitCameraMethod(this.parentNode); };
+                submit.innerText = "Submit";
+                let arg_props = Object.getOwnPropertyNames(args);
+                if (arg_props.length === 0)
+                {
+                    mNode.appendChild(document.createElement("br"));
+                }
+                mNode.appendChild(lbl);
+                mNode.appendChild(submit);
             }
         }
     }
@@ -310,8 +324,11 @@ function clearLog()
 function createParameterNode(name, type, opts)
 {
     let pNode = document.createElement("div");
-    pNode.class = "camera-param";
+    pNode.className = "camera-param";
     pNode.id = name;
+    let iNode = document.createElement("div");
+    iNode.className = "parameter";
+    pNode.appendChild(iNode);
     if (type.startsWith("bool"))
     {
         var toggle = document.createElement("input");
@@ -327,8 +344,8 @@ function createParameterNode(name, type, opts)
         // {
         //     toggle.checked = true;
         // }
-        pNode.appendChild(lbl);
-        pNode.appendChild(toggle);
+        iNode.appendChild(lbl);
+        iNode.appendChild(toggle);
     }
     else if (type.startsWith("int") ||
              type.startsWith("double"))
@@ -357,8 +374,8 @@ function createParameterNode(name, type, opts)
             toggle.min = Math.min.apply(Math, opts);
             toggle.max = Math.max.apply(Math, opts);
         }
-        pNode.appendChild(lbl);
-        pNode.appendChild(toggle);
+        iNode.appendChild(lbl);
+        iNode.appendChild(toggle);
     }
     else if (type.startsWith("string"))
     {
@@ -384,23 +401,70 @@ function createParameterNode(name, type, opts)
             pNode.appendChild(datalist);
             toggle.setAttribute("list", name + "-data");
         }
-        pNode.appendChild(lbl);
-        pNode.appendChild(toggle);
+        iNode.appendChild(lbl);
+        iNode.appendChild(toggle);
     }
     else if (type.startsWith("JSON"))
     {
-        pNode.innerHTML += "JSON - TODO";
+        var toggle = document.createElement("textarea");
+        toggle.type = "text";
+        toggle.id = name;
+        toggle.name = name;
+
+        var lbl = document.createElement("label");
+        lbl.htmlFor = name;
+        lbl.appendChild(document.createTextNode(name));
+
+        iNode.appendChild(lbl);
+        iNode.appendChild(toggle);
     }
 
     // Add functions to add input values.
     if (type.endsWith("*"))
     {
-        // TODO.
+        var add = document.createElement("button");
+        var rm = document.createElement("button");
+
+        add.innerText = "Add";
+        add.onclick = function() { addParam(this); };
+        rm.innerText = "Remove";
+        rm.onclick = function() { rmParam(this); };
+
+        pNode.appendChild(document.createElement("label"));
+        pNode.appendChild(add);
+        pNode.appendChild(rm);
     }
 
     return pNode;
 }
 
+function addParam(btn)
+{
+    // The 'btn' is any of the input nodes in the parameter value, so remove
+    // onfocus for all nodes in the parent to prevent this one from spawning
+    // more children.
+    let parent = btn.parentNode;
+    let params = parent.querySelectorAll(".parameter");
+    if (params.length > 0)
+    {
+        // Create and append clone to the parent.
+        let clone = params[0].cloneNode(true);
+        // clone.id = "something-new";
+        parent.insertBefore(clone, params[0].nextSibling);
+    }
+}
+
+function rmParam(btn)
+{
+    let parent = btn.parentNode;
+    let params = parent.querySelectorAll(".parameter");
+    if (params.length > 1)
+    {
+        // Create and append clone to the parent.
+        // clone.id = "something-new";
+        parent.removeChild(params[0]);
+    }
+}
 
 function submitCameraMethod(method)
 {
