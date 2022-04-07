@@ -111,6 +111,7 @@ class SonyImagingDevice:
     SPECIAL_METHODS = {
         "setExposureCompensation",
         "setWhiteBalance",
+        "setStillSize",
     }
 
     def __init__(self, location, name=None, timeout_seconds=5):
@@ -147,7 +148,8 @@ class SonyImagingDevice:
             return
 
         # Make sure that all endpoints are in the services list. Otherwise,
-        # create a new service and add the endpoint to the most common base-URL.
+        # create a new service and add the endpoint to the most common
+        # base-URL.
         url_vote = collections.Counter(s.url for s in self.webapi.Services)
         self.endpoints = {}
         for ep in eps["results"]:
@@ -190,12 +192,23 @@ class SonyImagingDevice:
         # Populate the method sets with all supported parameters.
         for ep, methods in self.endpoints.items():
             for meth, rsp in methods.items():
-                prm = params[ep][meth]
+                p = params[ep][meth]
                 opts = self._find_options(methods, ep, meth)
+                rsp["expects"] = self._response_type(p)
                 if meth in self.SPECIAL_METHODS:
-                    rsp.update(self._special_method_spec(prms, ep, meth, opts))
+                    rsp["parameters"] = self._special_method_spec(p, ep, meth, opts)
                 else:
-                    rsp.update(self._parse_arg_spec(prm, ep, meth, opts))
+                    rsp["parameters"] = self._parse_arg_spec(p, ep, meth, opts)
+
+    def _response_type(self, prms):
+        """Determine which response type we want."""
+        if prms:
+            if prms[0].startswith("{"):
+                return "object"
+            else:
+                return "list"
+        else:
+            return "none"
 
     def _special_method_spec(self, prms, ep, meth, opts):
         """Generate the specification entry for specific methods."""
@@ -211,7 +224,6 @@ class SonyImagingDevice:
                 args["EV"] = {"type": "int", "options": sorted(evs)}
             else:
                 args["EV"] = {"type": "int", "options": []}
-            return args
         elif meth == "setWhiteBalance":
             if opts:
                 wbms = []
@@ -224,12 +236,26 @@ class SonyImagingDevice:
                 args["WhiteBalanceMode"] = {"type": "string", "options": wbms}
                 args["ColorTempEnable"] = {"type": "bool", "options": []}
                 args["ColorTemp"] = {"type": "int", "options": sorted(cts)}
-                return args
             else:
                 args["WhiteBalanceMode"] = {"type": "string", "options": []}
                 args["ColorTempEnable"] = {"type": "bool", "options": []}
                 args["ColorTemp"] = {"type": "int", "options": []}
-                return args
+        elif meth == "setStillSize":
+            print(opts)
+            if opts:
+                aspects = set()
+                sizes = set()
+                for obj in opts[0]:
+                    if "aspect" in obj:
+                        aspects.add(obj["aspect"])
+                    if "size" in obj:
+                        sizes.add(obj["size"])
+                args["aspect"] = {"type": "string", "options": sorted(aspects)}
+                args["size"] = {"type": "string", "options": sorted(sizes)}
+            else:
+                args["aspect"] = {"type": "string", "options": []}
+                args["size"] = {"type": "string", "options": []}
+        return args
 
     def _parse_arg_spec(self, prms, ep, meth, opts):
         """Parse the camera method argument specification."""
