@@ -270,7 +270,9 @@ function changeCameraMode(input)
             let result = JSON.parse(this.response);
             log(JSON.stringify(value) + ":");
             log("    " + JSON.stringify(result));
-            if (input.value == "contents" && result["result"][0] === 0)
+            let code = result.result || [-1];
+            if (input.value == "contents" // && code[0] === 0
+               )
             {
                 updateFileTree();
             }
@@ -279,37 +281,106 @@ function changeCameraMode(input)
     xhr.send(JSON.stringify(value));
 }
 
-function addValue(input)
-{
-    // The 'input' is any of the input nodes in the parameter value, so remove
-    // onfocus for all nodes in the parent to prevent this one from spawning
-    // more children.
-    let parent = input.parentNode;
-    let clone = parent.cloneNode(true);
-    // clone.id = "something-new";
-    for (i = 0; i < parent.childNodes.length; i++)
-    {
-        console.log(parent.childNodes[i]);
-        parent.childNodes[i].onfocus = null;
-    }
-
-    // Append the clone to the parent.
-    parent.parentNode.appendChild(clone);
-}
-
-
 function updateFileTree()
 {
     log("Starting rebuild of file-tree...");
     let tree = document.getElementById("filetree");
+    tree.textContent = ""; // Clear node.
 
-    let files = getFiles();
+    // Await Transfer Mode transition.
+    // if not already in transfer-mode...
+    // camera.camera.getEvent([true]);
+    let res = camera.avContent.getSchemeList();
+    let schemes = (res.result || [[]]);
+    // camera.camera.getEvent([true]);
+    let srcs = getStorageSources(schemes);
+
+    let directories = getDirectories(srcs);
+    for (const d of directories)
+    {
+        let d_li = document.createElement("li");
+        let d_sp = document.createElement("span");
+        d_sp.className = "caret";
+        d_sp.innerText = d.uri;
+        let f_ul = document.createElement("ul");
+        f_ul.className = "nested";
+        let files = listFromUri(d.uri, /.*/g);
+        for (const f of files)
+        {
+            console.log(f);
+            let f_li = document.createElement("li");
+            f_li.innerText = f.uri;
+            f_ul.appendChild(f_li);
+            // TODO: Create another list with file info.
+        }
+        d_li.appendChild(d_sp);
+        d_li.appendChild(f_ul);
+        tree.appendChild(d_li);
+    }
+    // let files = getFiles(directories);
 }
 
-function getFiles()
+function getStorageSources(schemes)
 {
+    let srcs = [];
+    for (const sch of schemes)
+    {
+        let res = camera.avContent.getSourceList(sch);
+        let storage = res.result || [[]];
+        for (const s of storage[0])
+        {
+            srcs.push(s.source);
+        }
+    }
+    return srcs;
 }
 
+function listFromUri(uri, type)
+{
+    var files = [];
+    let p = {uri: uri, view: "date"};
+    let result = camera.avContent.getContentCount([p]);
+    let res = result.result || [{count:0}];
+    let cnt = res[0].count;
+    let iters = (cnt > 0) + Math.floor(cnt / 100);
+    for (var i = 0; i < iters; i++)
+    {
+        let c = {uri: uri, stIdx: i * 100, cnt: 100, view: "date"};
+        let cresult = camera.avContent.getContentList([c]);
+        let content = cresult.result || [[]];
+        for (const f of content[0])
+        {
+            let match = f.contentKind.match(type);
+            if (match !== null)
+            {
+                files.push(f);
+            }
+        }
+    }
+    return files;
+}
+
+function getDirectories(srcs)
+{
+    let dirs = [];
+    for (const s of srcs)
+    {
+        let d = listFromUri(s, /directory/g);
+        dirs = dirs.concat(d);
+    }
+    return dirs;
+}
+
+function getFiles(dirs)
+{
+    let files = [];
+    for (const d of dirs)
+    {
+        let f = listFromUri(d.uri, /.*/g);
+        files = files.concat(f);
+    }
+    return files;
+}
 
 function getStatus()
 {
