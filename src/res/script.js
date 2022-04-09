@@ -238,9 +238,8 @@ function reloadLiveview()
 
     // Ask browser to reload the liveview element.
     let lv = document.getElementById("liveview");
-    lv.location.reload(true);
-    // let content = lv.innerHTML;
-    // lv.innerHTML = content;
+    let content = lv.innerHTML;
+    lv.innerHTML = content;
 }
 
 function changeCameraMode(input)
@@ -287,38 +286,77 @@ function updateFileTree()
     let tree = document.getElementById("filetree");
     tree.textContent = ""; // Clear node.
 
-    // Await Transfer Mode transition.
-    // if not already in transfer-mode...
-    // camera.camera.getEvent([true]);
     let res = camera.avContent.getSchemeList();
     let schemes = (res.result || [[]]);
-    // camera.camera.getEvent([true]);
     let srcs = getStorageSources(schemes);
-
     let directories = getDirectories(srcs);
     for (const d of directories)
     {
         let d_li = document.createElement("li");
         let d_sp = document.createElement("span");
         d_sp.className = "caret";
-        d_sp.innerText = d.uri;
+        d_sp.innerText = d.title;
         let f_ul = document.createElement("ul");
         f_ul.className = "nested";
         let files = listFromUri(d.uri, /.*/g);
         for (const f of files)
         {
-            console.log(f);
-            let f_li = document.createElement("li");
-            f_li.innerText = f.uri;
+            let fa = document.createElement("a");
+            fa.href = "/" + f.uri;
+            fa.innerText = f.uri;
+            let f_li = createFileDescription(fa, f);
             f_ul.appendChild(f_li);
-            // TODO: Create another list with file info.
         }
         d_li.appendChild(d_sp);
         d_li.appendChild(f_ul);
         tree.appendChild(d_li);
     }
     // let files = getFiles(directories);
+    enableListNesting();
 }
+
+function createFileDescription(hdr, file_info)
+{
+    let li = document.createElement("li");
+    let sp = document.createElement("span");
+    sp.className = "caret";
+    let ul = document.createElement("ul");
+    ul.className = "nested";
+    for (let [k, v] of Object.entries(file_info))
+    {
+        if (typeof v === 'object' && v !== null)
+        {
+            let tn = document.createTextNode(k);
+            let i = createFileDescription(tn, v);
+            ul.appendChild(i);
+        }
+        else
+        {
+            let i = document.createElement("li");
+            let s = document.createElement("span");
+            s.innerText = k + ": ";
+            i.appendChild(s);
+            if (v.startsWith("http"))
+            {
+                let a = document.createElement("a");
+                a.href = v;
+                a.innerText = v;
+                i.appendChild(a);
+            }
+            else
+            {
+                i.innerText = v;
+            }
+            ul.appendChild(i);
+        }
+    }
+    li.append(sp);
+    li.appendChild(hdr);
+    li.appendChild(ul);
+    return li;
+}
+
+
 
 function getStorageSources(schemes)
 {
