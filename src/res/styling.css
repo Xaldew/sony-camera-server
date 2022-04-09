@@ -1,18 +1,22 @@
+.row {
+    display: flex;
+}
+
 .column {
-    float: left;
+    flex: 1;
 }
 
-.left {
-    width: 20%;
-}
+/* .left { */
+/*     width: 20%; */
+/* } */
 
-.middle {
-    width: 50%;
-}
+/* .middle { */
+/*     width: 50%; */
+/* } */
 
-.right {
-    width: 30%;
-}
+/* .right { */
+/*     width: 30%; */
+/* } */
 
 h4 {
     display: inline;
