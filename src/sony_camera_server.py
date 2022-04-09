@@ -41,13 +41,21 @@ class SonyRequestHandler(http.server.SimpleHTTPRequestHandler):
 
         """
         streamer = self.server.streamer
+        if not self.server.liveview_available():
+            self.send_header("Retry-After", 120)
+            self.send_response(http.HTTPStatus.SERVICE_UNAVAILABLE)
+            return
         if not streamer.activate():
+            self.send_header("Retry-After", 120)
             self.send_response(http.HTTPStatus.TOO_MANY_REQUESTS)
             return
 
+        ctype = f"multipart/x-mixed-replace;boundary={self.MJPEG_BOUNDS}"
+        caching = ", ".join(["no-store", "no-cache", "must-revalidate",
+                             "pre-check=0", "post-check=0", "max-age=0"])
         self.send_response(http.HTTPStatus.OK)
-        self.send_header("Content-Type", f"multipart/x-mixed-replace;boundary={self.MJPEG_BOUNDS}")
-        self.send_header("Cache-Control", "no-store, no-cache, must-revalidate, pre-check=0, post-check=0, max-age=0")
+        self.send_header("Content-Type", ctype)
+        self.send_header("Cache-Control", caching)
         self.send_header("Pragma", "no-cache")
         self.send_header("Access-Control-Allow-Origin", "*")
         self.end_headers()
@@ -57,7 +65,7 @@ class SonyRequestHandler(http.server.SimpleHTTPRequestHandler):
                 img = streamer.get_frame()
                 self.wfile.write(f"--{self.MJPEG_BOUNDS}\r\n".encode())
                 self.send_header("Content-type", "image/jpeg")
-                self.send_header("Cache-Control", "no-store, no-cache, must-revalidate, pre-check=0, post-check=0, max-age=0")
+                self.send_header("Cache-Control", caching)
                 self.send_header("Content-length", str(len(img)))
                 self.send_header("X-Timestamp", now)
                 self.end_headers()
@@ -159,9 +167,7 @@ class MJPEGStreamer:
         idx = self.thread_map[tid]
         if idx < 0:
             return bytes()
-        # Timeout based on FPS to handle crashed stream or devices.
-        frame_time = 1.0 / self.fps
-        return self.queues[idx].get(block=True, timeout=100*frame_time)
+        return self.queues[idx].get()
 
     def deactivate(self):
         """Deactivate the queues associated with the calling thread."""
@@ -228,6 +234,9 @@ class SonyCameraServer(http.server.ThreadingHTTPServer):
         return method(**params)
 
     def _start_liveview(self):
+        """Ask the server to start the liveview."""
+        if not self.active_device:
+            return False
         res = self.active_device.camera.startLiveview()
         callback = self.streamer.add_frame
         if "result" in res:
@@ -237,6 +246,7 @@ class SonyCameraServer(http.server.ThreadingHTTPServer):
             self.liveview.start()
 
     def _stop_liveview(self):
+        """Stop the liveview."""
         if self.active_device and self.liveview:
             self.liveview.exit()
             self.liveview.join()
@@ -249,6 +259,25 @@ class SonyCameraServer(http.server.ThreadingHTTPServer):
                 dev = sony_imgdev.SonyImagingDevice(rsp["location"])
                 devices.append(dev)
         return devices
+
+    def _update_status(self):
+        """Attempt to update device status."""
+        if not self.active_device:
+            return False
+        dev = self.active_device
+        res = dev.camera.getEvent(params=[False])
+        if "result" in res:
+            self.status = res["result"]
+            return True
+        else:
+            return False
+
+    def liveview_available(self):
+        """Check if the liveview is available."""
+        if not self._update_status():
+            return False
+        self.active_device.camera.startLiveview()
+        return self.status[3]["liveviewStatus"]
 
 
 def start_mjpeg_stream(bind, port):
