@@ -11,6 +11,7 @@ import collections
 import urllib.request
 import json
 import functools
+import logging
 
 from xml.etree import cElementTree
 import xml2dict
@@ -114,7 +115,7 @@ class SonyImagingDevice:
         "setStillSize",
     }
 
-    def __init__(self, location, name=None, timeout_seconds=5):
+    def __init__(self, location, name=None, timeout_seconds=10):
         """Create a new Sony Imaging Device."""
         self.location = location
         self.timeout_seconds = timeout_seconds
@@ -241,7 +242,6 @@ class SonyImagingDevice:
                 args["ColorTempEnable"] = {"type": "bool", "options": []}
                 args["ColorTemp"] = {"type": "int", "options": []}
         elif meth == "setStillSize":
-            print(opts)
             if opts:
                 aspects = set()
                 sizes = set()
@@ -365,21 +365,27 @@ class SonyImagingDevice:
             args["params"] = []
         req = urllib.request.Request(url)
         req.add_header('Content-Type', 'application/json; charset=utf-8')
-        body = json.dumps(args).encode("utf-8")
+        body_utf8 = json.dumps(args)
+        body = body_utf8.encode("utf-8")
+        logging.info(f"MSG {body_utf8}")
+        res = {}
         try:
             timeout = self.timeout_seconds
             with urllib.request.urlopen(req, body, timeout=timeout) as req:
                 contents = req.read()
                 # This is a hack due to a JSON bug in Sony-HDR AS50.
-                if endpoint == "accessControl" and params.get("method") == "getMethodTypes":
+                if (endpoint == "accessControl" and
+                        params.get("method") == "getMethodTypes"):
                     contents = contents.replace(b",,", b",")
-                return json.loads(contents)
+                res = json.loads(contents)
         except urllib.error.HTTPError as err:
-            return {"error": [err.code, err.reason], "id": id}
+            res = {"error": [err.code, err.reason], "id": id}
         except json.decoder.JSONDecodeError:
-            return {"error": [504, "Invalid data in returned JSON"]}
+            res = {"error": [504, "Invalid data in returned JSON"]}
         except urllib.error.URLError as err:
-            return {"error": [err.code, err.reason], "id": id}
+            res = {"error": [601, err.reason], "id": id}
+        logging.info(f"RES {res}")
+        return res
 
 
 def create_sony_imaging_device(ssdp):

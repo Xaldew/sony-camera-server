@@ -13,6 +13,7 @@ import http
 import http.server
 import threading
 import queue
+import logging
 
 import ssdp
 import sony_imgdev
@@ -314,10 +315,13 @@ def parse_arguments(argv):
     parser.add_argument("-b", "--bind", metavar="IP",
                         default="localhost",
                         help="Network interface to bind to.")
-
+    parser.add_argument("-v", "--verbosity", metavar="N",
+                        action="store_const", const=logging.INFO,
+                        help="Be more verbose.")
     return parser.parse_args(argv)
 
 
 if __name__ == '__main__':
     ARGS = parse_arguments(sys.argv[1:])
+    logging.basicConfig(level=ARGS.verbosity)
     sys.exit(start_mjpeg_stream(ARGS.bind, ARGS.port))
