@@ -196,12 +196,14 @@ class SonyCameraServer(http.server.ThreadingHTTPServer):
         super().__init__(server_address, RequestHandlerClass)
         self.streamer = streamer
         self.discover = ssdp.SSDPDiscoverer(SONY_SERVICE_TYPE)
-        self.devices = self._find_devices()
+        self.devices = []
         self.active_device = None
         self.liveview = None
+        self.status = None
+
+        self._find_devices()
         if len(self.devices) == 1:
-            self.active_device = self.devices[0]
-            self._start_liveview()
+            self._change_device(self.devices[0].device_name)
 
     def is_accessible_endpoint(self, ep):
         """Check if `ep` is an accessible endpoint."""
@@ -211,8 +213,6 @@ class SonyCameraServer(http.server.ThreadingHTTPServer):
             return False
 
     def _server(self, params):
-        if not self.active_device:
-            return {"error": [404, "No Device Connected"]}
         method = params.get("method", "")
         if method == "getDevices":
             devs = [d.device_name for d in self.devices]
@@ -220,7 +220,13 @@ class SonyCameraServer(http.server.ThreadingHTTPServer):
         elif method == "refreshDevices":
             devs = [d.device_name for d in self._find_devices()]
             return {"error": [0, "Ok"], "result": devs}
+        elif method == "changeDevice":
+            dev = params.get("params", [{}])[0].get("device", "")
+            res = self._change_device(dev)
+            return {"error": [0, "Ok"], "result": res}
         elif method == "getEndpoints":
+            if not self.active_device:
+                return {"error": [404, "No Device Connected"]}
             eps = self.active_device.endpoints
             return {"error": [0, "Ok"], "result": eps}
 
@@ -255,10 +261,19 @@ class SonyCameraServer(http.server.ThreadingHTTPServer):
     def _find_devices(self):
         devices = list()
         for rsp in self.discover.query():
-            if ("SonyImagingDevice" in rsp.get("server", "") and
-                    "location" in rsp):
+            if "SonyImagingDevice" not in rsp.get("server", ""):
+                continue
+            if "location" not in rsp:
+                continue
+            # Don't create a new device if the same one already exist.
+            for d in self.devices:
+                if d.location == rsp["location"]:
+                    devices.append(d)
+                    break
+            else:
                 dev = sony_imgdev.SonyImagingDevice(rsp["location"])
                 devices.append(dev)
+        self.devices = devices
         return devices
 
     def _update_status(self):
@@ -272,6 +287,23 @@ class SonyCameraServer(http.server.ThreadingHTTPServer):
             return True
         else:
             return False
+
+    def _change_device(self, dev):
+        """Attempt to change the active device."""
+        new_dev = None
+        for d in self.devices:
+            if dev != d.device_name:
+                continue
+            new_dev = d
+        # Only change active device if it is different from the active one.
+        cur_dev_name = ""
+        if self.active_device:
+            cur_dev_name = self.active_device.device_name
+        if new_dev and new_dev.device_name != cur_dev_name:
+            print("Changing devices", new_dev, cur_dev_name)
+            self.active_device = new_dev
+            self._update_status()
+            self._start_liveview()
 
     def liveview_available(self):
         """Check if the liveview is available."""
