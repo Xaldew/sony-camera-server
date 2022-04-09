@@ -23,7 +23,7 @@ class Camera
         if (xhr.status === 200)
         {
             let res = JSON.parse(xhr.responseText);
-            this.endpoints = res["result"];
+            this.endpoints = res["result"] || {};
             console.log(this.endpoints);
         }
     }
@@ -31,12 +31,14 @@ class Camera
     find_methods()
     {
         let methDiv = document.getElementById("camera-methods");
+        methDiv.textContent = "";
+
         for (let [epName, methods] of Object.entries(this.endpoints))
         {
             this[epName] = {};
             let epNode = document.createElement("div");
             epNode.id = epName;
-            epNode.class = "camera-endpoint";
+            epNode.className = "camera-endpoint";
             epNode.innerHTML = "<h3>" + epName + "</h3>";
             methDiv.appendChild(epNode);
 
@@ -103,6 +105,11 @@ class Camera
 
 function init()
 {
+    refreshDevices();
+}
+
+function enableListNesting()
+{
     // Enable file-tree toggling.
     var toggler = document.getElementsByClassName("caret");
 
@@ -114,12 +121,6 @@ function init()
             this.classList.toggle("caret-down");
         });
     }
-
-    camera = new Camera();
-    console.log(camera.system.getVersions());
-
-    // var status = getStatus();
-    getDevices();
 }
 
 function setLiveviewFocus(event, img)
@@ -146,37 +147,6 @@ function setLiveviewFocus(event, img)
     xhr.send(JSON.stringify(value));
 }
 
-function getDevices()
-{
-    var xhr = new XMLHttpRequest();
-    xhr.open("POST", "server", true);
-    xhr.setRequestHeader('Content-Type', 'application/json');
-    xhr.onreadystatechange = function()
-    {
-        if (this.readyState === XMLHttpRequest.DONE && this.status === 200)
-        {
-            let devicesNode = document.getElementById("device-select");
-            // Delete old list.
-            while (devicesNode.firstChild) {
-                devicesNode.removeChild(devicesNode.lastChild);
-            }
-
-            // Parse and insert new devices.
-            let result = JSON.parse(this.response);
-            let devices = result["result"];
-            for (var i = 0; i < devices.length; i++)
-            {
-                let node = document.createElement("option");
-                node.innerText = devices[i];
-                devicesNode.appendChild(node);
-            }
-        }
-    };
-    xhr.send(JSON.stringify({
-        method: "getDevices",
-    }));
-}
-
 function refreshDevices()
 {
     var xhr = new XMLHttpRequest();
@@ -189,23 +159,88 @@ function refreshDevices()
     {
         if (this.readyState === XMLHttpRequest.DONE && this.status === 200)
         {
-            let devicesNode = document.getElementById("device-select");
-            // Delete old list.
-            while (devicesNode.firstChild) {
-                devicesNode.removeChild(devicesNode.lastChild);
-            }
-
-            // Parse and insert new devices.
             let result = JSON.parse(this.response);
             let devices = result["result"];
-            for (var i = 0; i < devices.length; i++)
+            updateDeviceList(devices);
+            // If there's only one device, set it.
+            if (devices.length == 1)
             {
-                let node = document.createElement("option");
-                node.innerText = devices[i];
-                devicesNode.appendChild(node);
+                changeDevice();
             }
         }
     };
+}
+
+function changeDevice()
+{
+    let devs = document.getElementById("device-select");
+    var xhr = new XMLHttpRequest();
+    xhr.open("POST", "server", true);
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    xhr.onreadystatechange = function()
+    {
+        if (this.readyState === XMLHttpRequest.DONE && this.status === 200)
+        {
+            log("Device change successful");
+            camera = new Camera();
+            console.log(camera);
+        }
+    };
+    xhr.send(JSON.stringify({
+        method: "changeDevice",
+        params: [{device: devs.value}],
+    }));
+}
+
+function updateDeviceList(devices)
+{
+    let devicesNode = document.getElementById("device-select");
+
+    // Delete old list.
+    while (devicesNode.firstChild)
+    {
+        devicesNode.removeChild(devicesNode.lastChild);
+    }
+
+    // If empty, just insert a no-option value.
+    if (devices.length == 0)
+    {
+        let node = document.createElement("option");
+        node.innerText = "no-device";
+        devicesNode.appendChild(node);
+        return;
+    }
+
+    let dev_value = devicesNode.value;
+    let in_list = false;
+
+    for (var i = 0; i < devices.length; i++)
+    {
+        let node = document.createElement("option");
+        node.innerText = devices[i];
+        if (devices[i] == dev_value)
+        {
+            in_list = true;
+        }
+        devicesNode.appendChild(node);
+    }
+    // Make sure that if the original is in the list, keep it selected.
+    if (in_list)
+    {
+        devicesNode.value = dev_value;
+    }
+}
+
+function reloadLiveview()
+{
+    // Ask server to start the liveview.
+    camera.camera.startLiveview();
+
+    // Ask browser to reload the liveview element.
+    let lv = document.getElementById("liveview");
+    lv.location.reload(true);
+    // let content = lv.innerHTML;
+    // lv.innerHTML = content;
 }
 
 function changeCameraMode(input)
@@ -529,6 +564,18 @@ function getParameterValue(p)
     {
         return parseFloat(p.value);
     }
+    else if (p.value_type == "JSON")
+    {
+        try
+        {
+            return JSON.parse(p.value);
+        }
+        catch (e)
+        {
+            return p.value;
+        }
+    }
+    else
     {
         return p.value;
     }

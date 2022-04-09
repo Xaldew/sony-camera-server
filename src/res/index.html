@@ -12,9 +12,8 @@
     <div class="server">
       <h1>Devices</h1>
 
-      <select name="sony-devices" id="device-select">
-        <option value="dev0">DevName0</option>
-        <option value="dev1">DevName1</option>
+      <select name="sony-devices" id="device-select" onchange="changeDevice()" value="no-device">
+        <option value="no-device">no-device</option>
       </select>
       <button class="server-btn" onclick="refreshDevices()" id="device-refresh">Refresh</button>
     </div>
@@ -46,9 +45,12 @@
       </div>
 
       <div class="column middle">
-        <div class="liveview">
+        <div class="camera-liveview">
           <h2>Liveview</h2>
-          <img id="liveview" ondblclick="setLiveviewFocus(event, this)" src="liveview.mjpg" />
+          <div>
+            <img id="liveview" ondblclick="setLiveviewFocus(event, this)" src="liveview.mjpg" />
+          </div>
+          <button onclick="reloadLiveview()">reload</button>
         </div>
 
         <div class="camera-mode">
