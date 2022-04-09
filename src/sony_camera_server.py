@@ -5,6 +5,7 @@
 # pylint: disable=invalid-name, line-too-long
 
 import os.path
+import urllib
 import json
 import time
 import sys
@@ -92,10 +93,74 @@ class SonyRequestHandler(http.server.SimpleHTTPRequestHandler):
                 break
         streamer.deactivate()
 
+    def _forward_device_file(self):
+        """Download and forward files from the Sony imaging device."""
+        # TODO: Should create separate URLs for RAW/JPEG, etc...
+        dev = self.server.active_device
+        if not dev:
+            self.send_response(http.HTTPStatus.SERVICE_UNAVAILABLE)
+            return
+        for f in self._find_files():
+            if f["uri"] == os.path.basename(self.path):
+                url = f["content"]["original"][0]["url"]
+                try:
+                    with urllib.request.urlopen(url) as req:
+                        data = req.read()
+                except (urllib.error.HTTPError, urllib.error.URLError):
+                    self.send_response(http.HTTPStatus.SERVICE_UNAVAILABLE)
+                    return
+                self.send_response(http.HTTPStatus.OK)
+                self.send_header("Content-type", self._mime_type(f))
+                self.end_headers()
+                self.wfile.write(data)
+
+    def _mime_type(self, fil):
+        """Attempt to find the mime-type of the Sony file descriptor."""
+        if fil["contentKind"] == "still":
+            obj = fil["content"]["original"][0]["stillObject"]
+            if obj == "jpeg":
+                return "image/jpeg"
+            elif obj == "raw":
+                # TODO: Could also be image/x-sony-sr2 or image/x-sony-srf
+                # depending on camera...
+                return "image/x-sony-arw"
+        elif fil["contentKind"].startswith("movie"):
+            return "video/mp4"
+
+    def _find_files(self):
+        """Iterate over all files on the device."""
+        dev = self.server.active_device
+        res = dev.avContent.getSchemeList()
+        schemes = res.get("result", [[]])
+        srcs = []
+        for sch in schemes:
+            res = dev.avContent.getSourceList(params=sch)
+            storage = res.get("result", [[]])
+            srcs.extend(storage[0])
+        for s in srcs:
+            arg = {"uri": s["source"], "view": "flat"}
+            res = dev.avContent.getContentCount(params=[arg])
+            res = res.get("result", [{"count": 0}])
+            cnt = res[0]["count"]
+            iters = (cnt > 0) + cnt // 100
+            for i in range(0, iters):
+                carg = {"uri": s["source"],
+                        "stIdx": i * 100,
+                        "cnt": 100,
+                        "view": "flat"}
+                res = dev.avContent.getContentList(params=[carg])
+                contents = res.get("result", [[]])
+                for f in contents[0]:
+                    yield f
+
     def do_GET(self):
         """Handle the HTTP GET request."""
         if self.path.endswith("liveview.mjpg"):
             self._mjpeg_request()
+        elif (self.path.startswith("/image:content") or
+              self.path.startswith("/video:content") or
+              self.path.startswith("/audio:content")):
+            self._forward_device_file()
         else:
             try:
                 super().do_GET()
