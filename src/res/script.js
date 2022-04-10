@@ -545,6 +545,8 @@ function updateFileTree()
         {
             let fa = document.createElement("a");
             fa.href = "/" + f.uri;
+            fa.target="_blank";
+            fa.rel="noopener noreferrer";
             fa.innerText = f.uri;
             let f_li = createFileDescription(fa, f);
             f_ul.appendChild(f_li);
@@ -581,6 +583,8 @@ function createFileDescription(hdr, file_info)
             if (v.startsWith("http"))
             {
                 let a = document.createElement("a");
+                a.target="_blank";
+                a.rel="noopener noreferrer";
                 a.href = v;
                 a.innerText = v;
                 i.appendChild(a);
