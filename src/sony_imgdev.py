@@ -7,6 +7,7 @@
 
 import re
 import os
+import socket
 import collections
 import urllib.request
 import json
@@ -378,6 +379,8 @@ class SonyImagingDevice:
                         params.get("method") == "getMethodTypes"):
                     contents = contents.replace(b",,", b",")
                 res = json.loads(contents)
+        except socket.timeout:
+            res = {"error": [2, "timeout"], "id": id}
         except urllib.error.HTTPError as err:
             res = {"error": [err.code, err.reason], "id": id}
         except json.decoder.JSONDecodeError:
