@@ -29,23 +29,23 @@
           <button onclick="reloadLiveview()">reload</button>
         </div>
 
-        <div class="camera-mode">
-          <h2>Camera Mode</h2>
-          <div>
-            <input onclick="changeCameraMode(this)" class="camera-mode-switch" type="radio" name="mode" value="contents">Contents Transfer
-          </div>
-          <div>
-            <input onclick="changeCameraMode(this)" class="camera-mode-switch" type="radio" name="mode" value="shooting">Remote Shooting
-          </div>
-        </div>
+        <div class="camera-mode row">
 
-        <div class="camera-log">
-          <h2>Camera Log</h2>
-          <div>
-            <textarea readonly rows="20" cols="100" id="camera-logging-area"></textarea>
+          <div class="column">
+            <h2>Camera Mode</h2>
+            <div id="camera-function">
+            </div>
           </div>
-          <button onclick="prettyLog(this)">Pretty</button>
-          <button onclick="clearLog()">Clear</button>
+          <div class="column">
+            <h2>Shoot Mode</h2>
+            <div id="camera-shoot-mode">
+            </div>
+          </div>
+          <div class="column">
+            <h2>Actions</h2>
+            <div id="camera-action">
+            </div>
+          </div>
         </div>
 
         <div class="camera-files">
@@ -72,11 +72,31 @@
           </ul>
         </div>
 
+        <div class="camera-status">
+          <h2>Status</h2>
+          <div>
+            <textarea readonly rows="6" cols="90" id="camera-status"></textarea>
+          </div>
+        </div>
+
+        <div class="camera-log">
+          <h2>Camera Log</h2>
+          <div>
+            <textarea readonly rows="14" cols="90" id="camera-logging-area"></textarea>
+          </div>
+          <button onclick="prettyLog(this)">Pretty</button>
+          <button onclick="clearLog()">Clear</button>
+        </div>
+
       </div>
 
-      <div class="column right">
+      <div class="column right" style="overflow-y: auto; height: 800px;">
 
-        <div id="camera-methods" style="overflow-y: auto; height: 800px;">
+        <div id="camera-settings">
+          <h2>Camera Settings</h2>
+        </div>
+
+        <div id="raw-camera-methods">
           <h2>Raw Camera Methods</h2>
         </div>
       </div>

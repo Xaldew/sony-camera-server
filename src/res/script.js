@@ -9,6 +9,8 @@ class Camera
 
         this.find_endpoints();
         this.find_methods();
+
+        this.setup_base_ui();
     }
 
     find_endpoints()
@@ -30,8 +32,11 @@ class Camera
 
     find_methods()
     {
-        let methDiv = document.getElementById("camera-methods");
+        let methDiv = document.getElementById("raw-camera-methods");
         methDiv.textContent = "";
+        let h2 = document.createElement("h2");
+        h2.innerText = "Raw Camera Methods";
+        methDiv.appendChild(h2);
 
         for (let [epName, methods] of Object.entries(this.endpoints))
         {
@@ -99,6 +104,243 @@ class Camera
                 mNode.appendChild(lbl);
                 mNode.appendChild(submit);
             }
+        }
+    }
+
+    setup_base_ui()
+    {
+        let res = this.camera.getEvent([false]);
+        console.log(res);
+        let events = res.result || [];
+        if (events.length == 0)
+        {
+            return;
+        }
+        this.setup_camera_function(events);
+        this.setup_shoot_modes(events);
+        this.setup_actions(events);
+        this.setup_settings(events);
+        this.setup_status(events);
+    }
+
+    setup_camera_function(events)
+    {
+        // Camera function is available at index 12.
+        if (events.length < 13 || events[12] === null)
+        {
+            return;
+        }
+        let fnNode = document.getElementById("camera-function");
+        fnNode.textContent = "";
+        let fns = events[12];
+        for (const f of fns.cameraFunctionCandidates)
+        {
+            let div = document.createElement("div");
+            let input = document.createElement("input");
+            let txt = document.createTextNode(f);
+            input.type = "radio";
+            input.value = f;
+            input.name = "camera-function-mode";
+            if (f == fns.currentCameraFunction)
+            {
+                input.checked = true;
+            }
+            input.onchange = function(val)
+            {
+                log("Changing camera function: " + val.target.value);
+                camera.camera.setCameraFunction([val.target.value]);
+                // Wait for transition...
+                camera.camera.getEvent([true]);
+                camera.setup_base_ui();
+                if (val.target.value == "Contents Transfer")
+                {
+                    updateFileTree();
+                }
+            };
+            div.appendChild(input);
+            div.appendChild(txt);
+            fnNode.appendChild(div);
+        }
+    }
+
+    setup_shoot_modes(events)
+    {
+        // Shooting-mode is available at index 21 of getEvent().
+        if (events.length < 22 || events[21] === null)
+        {
+            return;
+        }
+        let modeNode = document.getElementById("camera-shoot-mode");
+        modeNode.textContent = "";
+
+        let modes = events[21];
+        for (const m of modes.shootModeCandidates)
+        {
+            let div = document.createElement("div");
+            let input = document.createElement("input");
+            let txt = document.createTextNode(m);
+            input.type = "radio";
+            input.value = m;
+            input.name = "camera-shoot-mode";
+            if (m == modes.currentShootMode)
+            {
+                input.checked = true;
+            }
+            input.onchange = function(val)
+            {
+                log("Changing shooting mode: " + val.target.value);
+                camera.camera.setShootMode([val.target.value]);
+                camera.setup_base_ui();
+            };
+            div.appendChild(input);
+            div.appendChild(txt);
+            modeNode.appendChild(div);
+        }
+    }
+
+    setup_actions(events)
+    {
+        let actionNode = document.getElementById("camera-action");
+        actionNode.textContent = "";
+
+        let reload = document.createElement("input");
+        reload.type = "button";
+        reload.value = "Reload UI";
+        reload.className = "action";
+        reload.onclick = function() { camera.setup_base_ui(); };
+
+        // Can't shoot while in contents transfer mode.
+        if (events.length < 13 ||
+            events[12] === null ||
+            events[12].currentCameraFunction == "Contents Transfer")
+        {
+            actionNode.appendChild(reload);
+            return;
+        }
+
+        // Focusing is available on index 35.
+        if (events.length > 35 && events[35] !== null)
+        {
+            // Add Focus or cancel buttons depending on state.
+            let focus = events[35];
+            if (focus.focusStatus == "Focused")
+            {
+                let cancel = document.createElement("input");
+                cancel.type = "button";
+                cancel.value = "Cancel";
+                cancel.className = "action";
+                cancel.onclick = function()
+                {
+                    camera.camera.cancelHalfPressShutter();
+                    camera.setup_base_ui();
+                }
+                actionNode.appendChild(cancel);
+            }
+            else
+            {
+                let startFocus = document.createElement("input");
+                startFocus.type = "button";
+                startFocus.value = "Focus";
+                startFocus.className = "action";
+                startFocus.onclick = function()
+                {
+                    camera.camera.actHalfPressShutter();
+                    camera.setup_base_ui();
+                }
+                actionNode.appendChild(startFocus);
+            }
+        }
+        if (events.length < 22 || events[21] === null)
+        {
+            actionNode.appendChild(reload);
+            return;
+        }
+
+        // Add Shot/Stop buttons.
+        let shootMode = events[21].currentShootMode;
+        let status = events[1].cameraStatus;
+        console.log(status);
+        if (status == "IDLE" || status == "NotReady")
+        {
+            let shoot = document.createElement("input");
+            shoot.type = "button";
+            shoot.value = "Shoot";
+            shoot.className = "action";
+            shoot.onclick = function()
+            {
+                if (shootMode == "still")
+                {
+                    camera.camera.awaitTakePicture();
+                }
+                else if (shootMode == "movie")
+                {
+                    camera.camera.startMovieRec();
+                }
+                else if (shootMode == "intervalstill")
+                {
+                    camera.camera.startIntervalStillRec();
+                }
+                else if (shootMode == "looprec")
+                {
+                    camera.camera.startLoopRec();
+                }
+                camera.setup_base_ui();
+            };
+            actionNode.appendChild(shoot);
+        }
+        else
+        {
+            let stop = document.createElement("input");
+            stop.type = "button";
+            stop.value = "Stop";
+            stop.className = "action";
+            stop.onclick = function()
+            {
+                if (shootMode == "movie")
+                {
+                    camera.camera.stopMovieRec();
+                }
+                else if (shootMode == "intervalstill")
+                {
+                    camera.camera.stopIntervalStillRec();
+                }
+                else if (shootMode == "looprec")
+                {
+                    camera.camera.stopLoopRec();
+                }
+                camera.setup_base_ui();
+            };
+            actionNode.appendChild(stop);
+        }
+        actionNode.appendChild(reload);
+    }
+
+    setup_status(events)
+    {
+    }
+
+    setup_settings(events)
+    {
+        let methDiv = document.getElementById("camera-settings");
+        methDiv.textContent = "";
+        let h2 = document.createElement("h2");
+        h2.innerText = "Camera Settings";
+        methDiv.appendChild(h2);
+        for (const e of events)
+        {
+            if (typeof e !== 'object' || Array.isArray(e) || e === null)
+            {
+                continue;
+            }
+            let mNode = document.createElement("div");
+            mNode.id = e.type;
+            mNode.className = "camera-method";
+            let h3 = document.createElement("h3");
+            h3.innerText = e.type;
+            mNode.appendChild(h3);
+            mNode.appendChild(document.createTextNode(JSON.stringify(e)));
+
+            methDiv.appendChild(mNode);
         }
     }
 }

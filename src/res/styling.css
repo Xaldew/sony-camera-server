@@ -27,10 +27,19 @@ label {
     width: 200px;
 }
 
+.action {
+    display: block;
+}
+
 #camera-logging-area {
     overflow-x: auto;
     overflow-y: scroll;
-    resize: none;
+    margin-right: 20px;
+}
+#camera-status {
+    overflow-x: auto;
+    overflow-y: scroll;
+    margin-right: 20px;
 }
 
 /* Remove default bullets */
