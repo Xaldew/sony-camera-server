@@ -313,6 +313,34 @@ class Camera
 
     setup_status(events)
     {
+        let stDiv = document.getElementById("camera-status");
+        stDiv.textContent = "";
+
+        let status = {
+            0: "AvailableApiList",
+            1: "Camera Status",
+            2: "Zoom Information",
+            3: "LiveviewStatus",
+            5: "PictureURLs",
+            6: "Warnings",
+            7: "Errors",
+            10: "StorageInfo",
+            56: "BatteryInfo",
+            58: "Number Of Shots",
+            73: "temporarilyUnavailableApiList",
+            76: "GPS Status",
+        };
+
+        for (let [k, v] of Object.entries(status))
+        {
+            if (events.length > k + 1 && events[k])
+            {
+                let e = events[k];
+                let hdr = document.createTextNode(v);
+                let li = createListDescription(hdr, e);
+                stDiv.appendChild(li);
+            }
+        }
     }
 
     setup_settings(events)
@@ -332,7 +360,7 @@ class Camera
                 continue;
             }
             let cands = e[e.type + "Candidates"] || e["candidate"];
-            if (typeof cands == "undefined")
+            if (typeof cands == "undefined" || cands.length == 0)
             {
                 continue;
             }
@@ -355,7 +383,6 @@ class Camera
             mNode.className = "camera-setting";
             setDiv.appendChild(mNode);
 
-
             var lbl = document.createElement("label");
             lbl.htmlFor = e.type;
             lbl.appendChild(document.createTextNode(e.type));
@@ -365,7 +392,6 @@ class Camera
                 var list = document.createElement("select");
                 list.id = e.type;
                 list.name = e.type;
-                list.value = current;
                 list.value_type = type;
                 list.className = "camera-setting";
                 for (const can of cands)
@@ -373,6 +399,10 @@ class Camera
                     var opt = document.createElement("option");
                     opt.value = can;
                     opt.innerText = can;
+                    if (current == can)
+                    {
+                        opt.selected = true;
+                    }
                     list.appendChild(opt);
                 }
                 mNode.appendChild(lbl);
@@ -404,13 +434,55 @@ class Camera
         }
         if (events.length > 34 && events[33])
         {
-            // Add whitebalance settings.
+            // TODO: Add whitebalance settings.
             let wb = events[33];
+            let enable = wb.currentcolorTemperature > 0;
+            let mode = document.getElementById("setWhiteBalance-WhiteBalanceMode-data");
+            let temp = document.getElementById("setWhiteBalance-ColorTemp-data");
         }
         if (events.length > 26 && events[25])
         {
             // Add ExposureCompensation settings.
-            let ev = events[25];
+            let e = events[25];
+            let exps = {}
+            let min = e.minExposureCompensation;
+            let max = e.maxExposureCompensation;
+            let step = e.stepIndexOfExposureCompensation;
+            for (var i = min; i < max + 1; i += step)
+            {
+                exps[i] = true;
+            }
+            let current = e.currentExposureCompensation;
+
+            let mNode = document.createElement("div");
+            mNode.id = e.type;
+            mNode.className = "camera-setting";
+            setDiv.appendChild(mNode);
+
+            var lbl = document.createElement("label");
+            lbl.htmlFor = e.type;
+            lbl.appendChild(document.createTextNode(e.type));
+
+            var list = document.createElement("select");
+            list.id = e.type;
+            list.name = e.type;
+            list.value_type = "number";
+            list.className = "camera-setting";
+            let keys = Object.keys(exps);
+            keys.sort();
+            for (const can of keys)
+            {
+                var opt = document.createElement("option");
+                opt.value = can;
+                opt.innerText = can;
+                if (current == can)
+                {
+                    opt.selected = true;
+                }
+                list.appendChild(opt);
+            }
+            mNode.appendChild(lbl);
+            mNode.appendChild(list);
         }
         if (events.length > 73 && events[72])
         {
@@ -427,28 +499,13 @@ function init()
 }
 
 function tryGetValue()
-    {
-        var val;
-        for (var i = 0, l = arguments.length; i < l; i++)
-        {
-            val = arguments[i];
-            if (val !== undefined && val !== null)
-                return val;
-        }
-}
-
-function enableListNesting()
 {
-    // Enable file-tree toggling.
-    var toggler = document.getElementsByClassName("caret");
-
-    // Note: Loading type of this script, if there are no "caret" classes at
-    // read-time, this won't work...
-    for (var i = 0; i < toggler.length; i++) {
-        toggler[i].addEventListener("click", function() {
-            this.parentElement.querySelector(".nested").classList.toggle("active");
-            this.classList.toggle("caret-down");
-        });
+    var val;
+    for (var i = 0, l = arguments.length; i < l; i++)
+    {
+        val = arguments[i];
+        if (val !== undefined && val !== null)
+            return val;
     }
 }
 
@@ -625,6 +682,10 @@ function updateFileTree()
         let d_sp = document.createElement("span");
         d_sp.className = "caret";
         d_sp.innerText = d.title;
+        d_sp.onclick = function() {
+            this.parentElement.querySelector(".nested").classList.toggle("active");
+            this.classList.toggle("caret-down");
+        };
         let f_ul = document.createElement("ul");
         f_ul.className = "nested";
         let files = listFromUri(d.uri, /.*/g);
@@ -635,7 +696,7 @@ function updateFileTree()
             fa.target="_blank";
             fa.rel="noopener noreferrer";
             fa.innerText = f.uri;
-            let f_li = createFileDescription(fa, f);
+            let f_li = createListDescription(fa, f);
             f_ul.appendChild(f_li);
         }
         d_li.appendChild(d_sp);
@@ -643,31 +704,37 @@ function updateFileTree()
         tree.appendChild(d_li);
     }
     // let files = getFiles(directories);
-    enableListNesting();
 }
 
-function createFileDescription(hdr, file_info)
+function createListDescription(hdr, info)
 {
     let li = document.createElement("li");
     let sp = document.createElement("span");
     sp.className = "caret";
+    sp.onclick = function() {
+        this.parentElement.querySelector(".nested").classList.toggle("active");
+        this.classList.toggle("caret-down");
+    };
     let ul = document.createElement("ul");
     ul.className = "nested";
-    for (let [k, v] of Object.entries(file_info))
+    for (let [k, v] of Object.entries(info))
     {
         if (typeof v === 'object' && v !== null)
         {
             let tn = document.createTextNode(k);
-            let i = createFileDescription(tn, v);
+            let i = createListDescription(tn, v);
             ul.appendChild(i);
         }
+        // else if (Array.isArray(v))
+        // {
+        // }
         else
         {
             let i = document.createElement("li");
             let s = document.createElement("span");
             s.innerText = k + ": ";
             i.appendChild(s);
-            if (v.startsWith("http"))
+            if (typeof v == "string" && v.startsWith("http"))
             {
                 let a = document.createElement("a");
                 a.target="_blank";
@@ -678,7 +745,8 @@ function createFileDescription(hdr, file_info)
             }
             else
             {
-                i.innerText = v;
+                let txt = document.createTextNode(v);
+                i.appendChild(txt);
             }
             ul.appendChild(i);
         }
