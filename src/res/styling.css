@@ -6,6 +6,10 @@
     flex: 1;
 }
 
+select.camera-setting {
+    width: 150px;
+}
+
 /* .left { */
 /*     width: 20%; */
 /* } */

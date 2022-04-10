@@ -34,10 +34,6 @@ class Camera
     {
         let methDiv = document.getElementById("raw-camera-methods");
         methDiv.textContent = "";
-        let h2 = document.createElement("h2");
-        h2.innerText = "Raw Camera Methods";
-        methDiv.appendChild(h2);
-
         for (let [epName, methods] of Object.entries(this.endpoints))
         {
             this[epName] = {};
@@ -321,33 +317,124 @@ class Camera
 
     setup_settings(events)
     {
-        let methDiv = document.getElementById("camera-settings");
-        methDiv.textContent = "";
-        let h2 = document.createElement("h2");
-        h2.innerText = "Camera Settings";
-        methDiv.appendChild(h2);
+        let setDiv = document.getElementById("camera-settings");
+        setDiv.textContent = "";
+
         for (const e of events)
         {
             if (typeof e !== 'object' || Array.isArray(e) || e === null)
             {
                 continue;
             }
+            // Skip this, it is listed elsewhere.
+            if (e.type == "cameraFunction")
+            {
+                continue;
+            }
+            let cands = e[e.type + "Candidates"] || e["candidate"];
+            if (typeof cands == "undefined")
+            {
+                continue;
+            }
+            // The consequences of not sticking to a standard scheme...
+            let type_upcase = e.type.charAt(0).toUpperCase() + e.type.slice(1);
+            let current = tryGetValue(e[e.type],
+                                      e["current" + type_upcase],
+                                      e["zoom"],
+                                      e["flip"],
+                                      e["scene"],
+                                      "")
+            var type = typeof current;
+            if (type != "string" || type != "number" || type != "boolean")
+            {
+                type = "string";
+            }
+
             let mNode = document.createElement("div");
             mNode.id = e.type;
-            mNode.className = "camera-method";
-            let h3 = document.createElement("h3");
-            h3.innerText = e.type;
-            mNode.appendChild(h3);
-            mNode.appendChild(document.createTextNode(JSON.stringify(e)));
+            mNode.className = "camera-setting";
+            setDiv.appendChild(mNode);
 
-            methDiv.appendChild(mNode);
+
+            var lbl = document.createElement("label");
+            lbl.htmlFor = e.type;
+            lbl.appendChild(document.createTextNode(e.type));
+
+            if (cands.length > 0)
+            {
+                var list = document.createElement("select");
+                list.id = e.type;
+                list.name = e.type;
+                list.value = current;
+                list.value_type = type;
+                list.className = "camera-setting";
+                for (const can of cands)
+                {
+                    var opt = document.createElement("option");
+                    opt.value = can;
+                    opt.innerText = can;
+                    list.appendChild(opt);
+                }
+                mNode.appendChild(lbl);
+                mNode.appendChild(list);
+            }
+            else if (type == "boolean")
+            {
+                // Create a check-box.
+                var toggle = document.createElement("input");
+                toggle.type = "checkbox";
+                toggle.id = e.type;
+                toggle.name = e.type;
+                toggle.checked = current;
+
+                mNode.appendChild(lbl);
+                mNode.appendChild(toggle);
+            }
+            else
+            {
+                // Free-form one-line string or number parameter.
+                var list = document.createElement("input");
+                list.type = type;
+                list.id = e.type;
+                list.name = e.type;
+                list.value = current;
+                mNode.appendChild(lbl);
+                mNode.appendChild(list);
+            }
+        }
+        if (events.length > 34 && events[33])
+        {
+            // Add whitebalance settings.
+            let wb = events[33];
+        }
+        if (events.length > 26 && events[25])
+        {
+            // Add ExposureCompensation settings.
+            let ev = events[25];
+        }
+        if (events.length > 73 && events[72])
+        {
+            // TODO: Zoom settings. Don't have a camera with this function, so
+            // skip it for now.
         }
     }
+
 }
 
 function init()
 {
     refreshDevices();
+}
+
+function tryGetValue()
+    {
+        var val;
+        for (var i = 0, l = arguments.length; i < l; i++)
+        {
+            val = arguments[i];
+            if (val !== undefined && val !== null)
+                return val;
+        }
 }
 
 function enableListNesting()
