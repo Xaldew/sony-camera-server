@@ -60,7 +60,9 @@ class Camera
                     req.send(JSON.stringify(params));
                     if (req.status === 200)
                     {
-                        return JSON.parse(req.responseText);
+                        let resp = JSON.parse(req.responseText);
+                        console.log(resp);
+                        return resp;
                     }
                     else
                     {
