@@ -154,7 +154,7 @@ class Camera
                 camera.setup_base_ui();
                 if (val.target.value == "Contents Transfer")
                 {
-                    updateFileTree();
+                    setTimeout(camera.updateFileTree, 4000);
                 }
             };
             div.appendChild(input);
