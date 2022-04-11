@@ -365,7 +365,7 @@ class SonyCameraServer(http.server.ThreadingHTTPServer):
         if self.active_device:
             cur_dev_name = self.active_device.device_name
         if new_dev and new_dev.device_name != cur_dev_name:
-            print("Changing devices", new_dev, cur_dev_name)
+            logging.info(f"Changing devices {cur_dev_name} -> {new_dev}")
             self.active_device = new_dev
             self._update_status()
             self._start_liveview()

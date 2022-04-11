@@ -116,7 +116,11 @@ class SonyImagingDevice:
         "setStillSize",
     }
 
-    def __init__(self, location, name=None, timeout_seconds=10):
+    def __init__(self,
+                 location,
+                 name=None,
+                 timeout_seconds=10,
+                 fast_setup=False):
         """Create a new Sony Imaging Device."""
         self.location = location
         self.timeout_seconds = timeout_seconds
@@ -132,13 +136,13 @@ class SonyImagingDevice:
             self.device_version = version
             self.webapi = api
 
-        self._build_endpoints()
+        self._build_endpoints(fast_setup)
 
     def __str__(self):
         """Retrieve a pretty string describing the device."""
         return f"SonyImagingDevice:{self.device_name}@{self.location}"
 
-    def _build_endpoints(self):
+    def _build_endpoints(self, fast_setup):
         """Initialize all endpoints."""
         eps = self.request("guide",
                            method="getServiceProtocols",
@@ -195,10 +199,13 @@ class SonyImagingDevice:
         for ep, methods in self.endpoints.items():
             for meth, rsp in methods.items():
                 p = params[ep][meth]
-                opts = self._find_options(methods, ep, meth)
+                opts = []
+                if not fast_setup:
+                    opts = self._find_options(methods, ep, meth)
                 rsp["expects"] = self._response_type(p)
                 if meth in self.SPECIAL_METHODS:
-                    rsp["parameters"] = self._special_method_spec(p, ep, meth, opts)
+                    p = self._special_method_spec(p, ep, meth, opts)
+                    rsp["parameters"] = p
                 else:
                     rsp["parameters"] = self._parse_arg_spec(p, ep, meth, opts)
 
