@@ -6,6 +6,8 @@ class Camera
         this.status = null;
         this.prettyfy = true;
         this.endpoints = [];
+        this.zooming = "idle";
+        this.zoom_timeout_id = 0;
 
         this.find_endpoints();
         this.find_methods();
@@ -309,6 +311,100 @@ class Camera
             actionNode.appendChild(stop);
         }
         actionNode.appendChild(reload);
+
+        // Add Zoom in/out buttons if supported.
+        if (events.length >= 37 &&
+            events[36] &&
+            events[36].zoom.startsWith("On"))
+        {
+            let divIn = document.createElement("div");
+            let divOut = document.createElement("div");
+
+            if (this.zooming == "idle")
+            {
+                // If Idle, add both zoom in/out buttons.
+                let zoomIn = document.createElement("input");
+                zoomIn.type = "button";
+                zoomIn.value = "Zoom In";
+                zoomIn.onclick = function()
+                {
+                    camera.camera.actZoom(["in", "start"]);
+                    camera.zooming = "in";
+                    camera.zoom_timeout_id = setTimeout(function(){
+                        camera.zooming = "idle";
+                        camera.setup_base_ui();
+                    }, 10000);
+                    camera.setup_base_ui();
+                };
+                let zoomInStep = document.createElement("input");
+                zoomInStep.type = "button";
+                zoomInStep.value = "Zoom In Step";
+                zoomInStep.onclick = function()
+                {
+                    camera.camera.actZoom(["in", "1shot"]);
+                    camera.setup_base_ui();
+                };
+                divIn.appendChild(zoomIn);
+                divIn.appendChild(zoomInStep);
+
+                let zoomOut = document.createElement("input");
+                zoomOut.type = "button";
+                zoomOut.value = "Zoom Out";
+                zoomOut.onclick = function()
+                {
+                    camera.camera.actZoom(["out", "start"]);
+                    camera.zooming = "out";
+                    camera.zoom_timeout_id = setTimeout(function(){
+                        camera.zooming = "idle";
+                        camera.setup_base_ui();
+                    }, 10000);
+                    camera.setup_base_ui();
+                };
+                let zoomOutStep = document.createElement("input");
+                zoomOutStep.type = "button";
+                zoomOutStep.value = "Zoom Out Step";
+                zoomOutStep.onclick = function()
+                {
+                    camera.camera.actZoom(["out", "1shot"]);
+                    camera.setup_base_ui();
+                };
+                divOut.appendChild(zoomOut);
+                divOut.appendChild(zoomOutStep);
+            }
+            else if (this.zooming == "in")
+            {
+                // Currently zooming in, only add Zoom-in-stop button.
+                let zoomStop = document.createElement("input");
+                zoomStop.type = "button";
+                zoomStop.value = "Zoom Stop";
+                zoomStop.onclick = function()
+                {
+                    camera.camera.actZoom(["in", "stop"]);
+                    camera.zooming = "idle";
+                    clearTimeout(camera.zoom_timeout_id);
+                    camera.setup_base_ui();
+                };
+                divIn.appendChild(zoomStop);
+            }
+            else if (this.zooming == "out")
+            {
+                // Currently zooming out, only add Zoom-out-stop button.
+                let zoomStop = document.createElement("input");
+                zoomStop.type = "button";
+                zoomStop.value = "Zoom Stop";
+                zoomStop.onclick = function()
+                {
+                    camera.camera.actZoom(["out", "stop"]);
+                    camera.zooming = "idle";
+                    clearTimeout(camera.zoom_timeout_id);
+                    camera.setup_base_ui();
+                };
+                divIn.appendChild(zoomStop);
+            }
+
+            actionNode.appendChild(divIn);
+            actionNode.appendChild(divOut);
+        }
     }
 
     setup_status(events)
