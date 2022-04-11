@@ -168,11 +168,17 @@ class SonyRequestHandler(http.server.SimpleHTTPRequestHandler):
                 pass
 
     def _send_post_response(self, result):
+        try:
+            data = json.dumps(result).encode()
+        except OSError:
+            logging.warning(f"Failed to JSON encode: {result}")
+            self.send_response(http.HTTPStatus.BAD_GATEWAY)
+            return
         self.send_response(http.HTTPStatus.OK)
         self.send_header("Content-type", "application/json")
         self.end_headers()
         try:
-            self.wfile.write(json.dumps(result).encode())
+            self.wfile.write(data)
         except BrokenPipeError:
             pass
 
