@@ -453,7 +453,7 @@ class Camera
                 continue;
             }
             // Skip this, it is listed elsewhere.
-            if (e.type == "cameraFunction")
+            if (e.type == "cameraFunction" || e.type == "shootMode")
             {
                 continue;
             }
