@@ -470,8 +470,9 @@ class Camera
                                       e["flip"],
                                       e["scene"],
                                       "")
+            let key = firstAvailableKey(e, e.type, "zoom", "flip", "scene");
             var type = typeof current;
-            if (type != "string" || type != "number" || type != "boolean")
+            if (type != "string" && type != "number" && type != "boolean")
             {
                 type = "string";
             }
@@ -490,8 +491,34 @@ class Camera
                 var list = document.createElement("select");
                 list.id = e.type;
                 list.name = e.type;
+                list.key = key;
                 list.value_type = type;
                 list.className = "camera-setting";
+                list.onchange = function(setting)
+                {
+                    // Key == undefined is a possible way of detecting
+                    // array/object expected arguments.
+                    let set = setting.target.name;
+                    let fn = "set" + set.charAt(0).toUpperCase() + set.slice(1);
+                    let methodNode = document.getElementById(fn);
+                    let exp = "list";
+                    if (methodNode)
+                    {
+                        exp = methodNode.expects || exp;
+                    }
+                    let val = getParameterValue(setting.target);
+                    if (exp == "list")
+                    {
+                        camera.camera[fn]([val]);
+                    }
+                    else
+                    {
+                        let p = {};
+                        p[setting.target.key] = val;
+                        camera.camera[fn]([p]);
+                    }
+                    camera.setup_base_ui();
+                };
                 for (const can of cands)
                 {
                     var opt = document.createElement("option");
@@ -514,20 +541,16 @@ class Camera
                 toggle.id = e.type;
                 toggle.name = e.type;
                 toggle.checked = current;
-
+                toggle.onchange = function(setting)
+                {
+                    let set = setting.target.name;
+                    let fn = "set" + set.charAt(0).toUpperCase() + set.slice(1);
+                    let val = getParameterValue(setting.target);
+                    camera.camera[fn]([val]);
+                    camera.setup_base_ui();
+                };
                 mNode.appendChild(lbl);
                 mNode.appendChild(toggle);
-            }
-            else
-            {
-                // Free-form one-line string or number parameter.
-                var list = document.createElement("input");
-                list.type = type;
-                list.id = e.type;
-                list.name = e.type;
-                list.value = current;
-                mNode.appendChild(lbl);
-                mNode.appendChild(list);
             }
         }
         if (events.length > 34 && events[33])
@@ -566,6 +589,12 @@ class Camera
             list.name = e.type;
             list.value_type = "number";
             list.className = "camera-setting";
+            list.onchange = function(setting)
+            {
+                let val = getParameterValue(setting.target);
+                camera.camera.setExposureCompensation([val]);
+                camera.setup_base_ui();
+            };
             let keys = Object.keys(exps);
             keys.sort();
             for (const can of keys)
@@ -588,7 +617,6 @@ class Camera
             // skip it for now.
         }
     }
-
 }
 
 function init()
@@ -598,12 +626,26 @@ function init()
 
 function tryGetValue()
 {
-    var val;
-    for (var i = 0, l = arguments.length; i < l; i++)
+    for (var i = 0; i < arguments.length; i++)
     {
-        val = arguments[i];
+        let val = arguments[i];
         if (val !== undefined && val !== null)
             return val;
+    }
+}
+
+function firstAvailableKey()
+{
+    if (arguments.length == 0 || arguments.length == 1 ||
+        (typeof arguments[0]  !== 'object' || arguments[0] === null))
+    {
+        return undefined;
+    }
+    let obj = arguments[0];
+    for (var i = 1; i < arguments.length; i++)
+    {
+        if (arguments[i] in obj)
+            return arguments[i];
     }
 }
 
@@ -1168,7 +1210,7 @@ function getParameterValue(p)
     {
         return parseInt(p.value);
     }
-    else if (p.value_type == "double")
+    else if (p.value_type == "double" || p.value_type == "number")
     {
         return parseFloat(p.value);
     }
