@@ -8,6 +8,7 @@ class Camera
         this.endpoints = [];
         this.zooming = "idle";
         this.zoom_timeout_id = 0;
+        this.color_temp_enabled = true;
 
         this.find_endpoints();
         this.find_methods();
@@ -555,11 +556,143 @@ class Camera
         }
         if (events.length > 34 && events[33])
         {
-            // TODO: Add whitebalance settings.
+            // Add whitebalance settings.
             let wb = events[33];
-            let enable = wb.currentcolorTemperature > 0;
-            let mode = document.getElementById("setWhiteBalance-WhiteBalanceMode-data");
-            let temp = document.getElementById("setWhiteBalance-ColorTemp-data");
+            let curTemp = wb.currentColorTemperature
+            let curWbMode = wb.currentWhiteBalanceMode;
+            if (wb.checkAvailability)
+            {
+                let mNode = document.createElement("div");
+                mNode.className = "camera-setting";
+
+                let result = this.camera.getAvailableWhiteBalance();
+                let res = result.result;
+                if (res)
+                {
+                    var modes = [];
+                    var temps = [];
+                    for (const obj of res[1])
+                    {
+                        modes.push(obj.whiteBalanceMode);
+                        if (obj.whiteBalanceMode == curWbMode)
+                        {
+                            let tempStart = obj.colorTemperatureRange[1];
+                            let tempEnd = obj.colorTemperatureRange[0];
+                            let tempStep = obj.colorTemperatureRange[2];
+                            for (var i = tempStart; i <= tempEnd; i += tempStep)
+                            {
+                                temps.push(i);
+                            }
+                        }
+                    }
+
+                    var modeLabel = document.createElement("label");
+                    modeLabel.htmlFor = "WhiteBalanceMode";
+                    modeLabel.appendChild(document.createTextNode("WhiteBalanceMode"));
+
+                    var modeList = document.createElement("select");
+                    modeList.id = "WhiteBalanceMode";
+                    modeList.name = "WhiteBalanceMode";
+                    modeList.value_type = "string";
+                    modeList.className = "camera-setting";
+                    modeList.onchange = function(setting) {
+                        let set = setting.target.name;
+                        let val = getParameterValue(setting.target);
+                        let enabled = camera.color_temp_enabled;
+                        camera.camera.setWhiteBalance([val, enabled, -1]);
+                        camera.setup_base_ui();
+                    };
+                    for (const v of modes)
+                    {
+                        let opt = document.createElement("option");
+                        opt.value = v;
+                        opt.innerText = v;
+                        if (curWbMode == v)
+                        {
+                            opt.selected = true;
+                        }
+                        modeList.appendChild(opt);
+                    }
+                    mNode.appendChild(modeLabel);
+                    mNode.appendChild(modeList);
+                    setDiv.appendChild(mNode);
+
+                    let eNode = document.createElement("div");
+                    eNode.className = "camera-setting";
+
+                    var enableLabel = document.createElement("label");
+                    enableLabel.htmlFor = "ColorTemperatureEnable";
+                    enableLabel.appendChild(document.createTextNode("ColorTemperatureEnable"));
+                    var enableList = document.createElement("select");
+                    enableList.id = "ColorTemperatureEnable";
+                    enableList.name = "ColorTemperatureEnable";
+                    enableList.value_type = "boolean";
+                    enableList.className = "camera-setting";
+                    enableList.onchange = function(setting) {
+                        let set = setting.target.name;
+                        let val = setting.target.value === "true";
+                        camera.color_temp_enabled = val;
+                        camera.camera.setWhiteBalance([curWbMode, val, curTemp]);
+                        camera.setup_base_ui();
+                    };
+                    let onOpt = document.createElement("option");
+                    onOpt.value = true;
+                    onOpt.innerText = "On";
+                    if (this.color_temp_enabled)
+                    {
+                        onOpt.selected = true;
+                    }
+                    enableList.appendChild(onOpt);
+                    let offOpt = document.createElement("option");
+                    offOpt.value = false;
+                    offOpt.innerText = "Off";
+                    if (!this.color_temp_enabled)
+                    {
+                        offOpt.selected = true;
+                    }
+                    enableList.appendChild(offOpt);
+                    eNode.appendChild(enableLabel);
+                    eNode.appendChild(enableList);
+                    setDiv.appendChild(eNode);
+
+                    if (temps.length > 0)
+                    {
+                        let tNode = document.createElement("div");
+                        tNode.className = "camera-setting";
+                        var tempLabel = document.createElement("label");
+                        tempLabel.htmlFor = "WhiteBalanceTemperature";
+                        tempLabel.appendChild(document.createTextNode("WhiteBalanceTemperature"));
+
+                        var tempList = document.createElement("select");
+                        tempList.id = "WhiteBalanceTemperature";
+                        tempList.name = "WhiteBalanceTemperature";
+                        tempList.value_type = "number";
+                        tempList.className = "camera-setting";
+                        tempList.onchange = function(setting) {
+                            let set = setting.target.name;
+                            let val = getParameterValue(setting.target);
+                            let enabled = camera.color_temp_enabled;
+                            camera.camera.setWhiteBalance([curWbMode, enabled, val]);
+                            camera.setup_base_ui();
+                        };
+                        for (const t of temps)
+                        {
+                            let opt = document.createElement("option");
+                            opt.value = t;
+                            opt.innerText = t;
+                            if (curTemp == t)
+                            {
+                                opt.selected = true;
+                            }
+                            tempList.appendChild(opt);
+                        }
+
+                        tNode.appendChild(tempLabel);
+                        tNode.appendChild(tempList);
+                        setDiv.appendChild(tNode);
+                    }
+                }
+            }
         }
         if (events.length > 26 && events[25])
         {
@@ -610,11 +743,6 @@ class Camera
             }
             mNode.appendChild(lbl);
             mNode.appendChild(list);
-        }
-        if (events.length > 73 && events[72])
-        {
-            // TODO: Zoom settings. Don't have a camera with this function, so
-            // skip it for now.
         }
     }
 }
@@ -1202,7 +1330,7 @@ function submitCameraMethod(method)
 
 function getParameterValue(p)
 {
-    if (p.value_type == "bool")
+    if (p.value_type == "bool" || p.value_type == "boolean")
     {
         return p.checked;
     }
