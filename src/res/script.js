@@ -896,44 +896,6 @@ function reloadLiveview()
     lv.innerHTML = content;
 }
 
-function changeCameraMode(input)
-{
-    // let tst = document.querySelector('input[name="mode"]:checked');
-    // console.log(input.value);
-    console.log(input);
-    var xhr = new XMLHttpRequest();
-    xhr.open("POST", "camera", true);
-    xhr.setRequestHeader('Content-Type', 'application/json');
-    let value = {
-        method: "setCameraFunction",
-    };
-
-    if (input.value === "shooting")
-    {
-        value.params = ["Remote Shooting"];
-    }
-    else if (input.value === "contents")
-    {
-        value.params = ["Contents Transfer"];
-    }
-    xhr.onreadystatechange = function()
-    {
-        if (this.readyState === XMLHttpRequest.DONE && this.status === 200)
-        {
-            let result = JSON.parse(this.response);
-            log(JSON.stringify(value) + ":");
-            log("    " + JSON.stringify(result));
-            let code = result.result || [-1];
-            if (input.value == "contents" // && code[0] === 0
-               )
-            {
-                updateFileTree();
-            }
-        }
-    };
-    xhr.send(JSON.stringify(value));
-}
-
 function updateFileTree()
 {
     log("Starting rebuild of file-tree...");
