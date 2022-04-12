@@ -885,17 +885,6 @@ function updateDeviceList(devices)
     }
 }
 
-function reloadLiveview()
-{
-    // Ask server to start the liveview.
-    camera.camera.startLiveview();
-
-    // Ask browser to reload the liveview element.
-    let lv = document.getElementById("liveview");
-    let content = lv.innerHTML;
-    lv.innerHTML = content;
-}
-
 function updateFileTree()
 {
     log("Starting rebuild of file-tree...");
@@ -933,7 +922,6 @@ function updateFileTree()
         d_li.appendChild(f_ul);
         tree.appendChild(d_li);
     }
-    // let files = getFiles(directories);
 }
 
 function createListDescription(hdr, info)
@@ -986,8 +974,6 @@ function createListDescription(hdr, info)
     li.appendChild(ul);
     return li;
 }
-
-
 
 function getStorageSources(schemes)
 {
@@ -1050,12 +1036,6 @@ function getFiles(dirs)
     }
     return files;
 }
-
-function getStatus()
-{
-    return "";
-}
-
 
 function log(msg)
 {
