@@ -112,6 +112,12 @@ HDR-AS50/
     └── MAH00207.MP4
 ```
 
+# Ongoing
+
+I am currently working on packaging this and making it available on
+[PyPI](https://pypi.org/).
+
+
 # Unimplemented Features
 
 Barring bugs, most features that the API supports should be
