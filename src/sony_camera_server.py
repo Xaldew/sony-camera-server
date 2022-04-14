@@ -21,9 +21,6 @@ import sony_imgdev
 import sony_streams
 
 
-SONY_SERVICE_TYPE = "urn:schemas-sony-com:service:ScalarWebAPI:1"
-
-
 class SonyRequestHandler(http.server.SimpleHTTPRequestHandler):
     """Handler for a HTTP Request for a Sony device."""
 
@@ -266,7 +263,7 @@ class SonyCameraServer(http.server.ThreadingHTTPServer):
         """Create a new Sony network camera server."""
         super().__init__(server_address, RequestHandlerClass)
         self.streamer = streamer
-        self.discover = ssdp.SSDPDiscoverer(SONY_SERVICE_TYPE)
+        self.discover = ssdp.SSDPDiscoverer(ssdp.SONY_SERVICE_TYPE)
         self.devices = []
         self.active_device = None
         self.liveview = None

@@ -15,6 +15,8 @@ DISCOVERY_MSG_FMT = ('M-SEARCH * HTTP/1.1\r\n'
                      'ST: %s\r\n'
                      '\r\n')
 
+SONY_SERVICE_TYPE = "urn:schemas-sony-com:service:ScalarWebAPI:1"
+
 
 def parse_ssdp_response(data):
     """Parse the header of a SSDP response message.
