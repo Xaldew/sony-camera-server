@@ -3,6 +3,7 @@
 """Utilities for the Simple Service Discovery Protocol"""
 
 import socket
+import platform
 
 SSDP_ADDR = '239.255.255.250'
 SSDP_PORT = 1900
@@ -44,7 +45,7 @@ class SSDPDiscoverer:
         self.service_type = service_type
         self.timeout = timeout
         self.sockets = []
-        for (_, inf) in interfaces:
+        for (idx, inf) in interfaces:
             sock = socket.socket(socket.AF_INET,
                                  socket.SOCK_DGRAM,
                                  socket.IPPROTO_UDP)
@@ -55,9 +56,21 @@ class SSDPDiscoverer:
                             socket.IP_MULTICAST_TTL,
                             2)
             sock.settimeout(timeout)
-            sock.setsockopt(socket.SOL_SOCKET,
-                            socket.SO_BINDTODEVICE,
-                            inf.encode())
+            try:
+                pltfm = platform.system()
+                if pltfm == "Linux":
+                    sock.setsockopt(socket.SOL_SOCKET,
+                                    socket.SO_BINDTODEVICE,
+                                    inf.encode())
+                elif pltfm == "Darwin":
+                    IP_BOUND_IF = 25
+                    sock.setsockopt(socket.IPPROTO_IP,
+                                    IP_BOUND_IF,
+                                    idx)
+                    # if (setsockopt(socket_fd, IPPROTO_IP, IP_BOUND_IF, &index, sizeof(index)) == -1) {
+                    #         return errno;
+            except AttributeError as err:
+                pass
             self.sockets.append(sock)
 
     def __str__(self):
@@ -67,15 +80,18 @@ class SSDPDiscoverer:
         """Attempt to discover SSDP devices."""
         ssdp_st = self.service_type
         msg = DISCOVERY_MSG_FMT % (SSDP_ADDR, SSDP_PORT, SSDP_MX, ssdp_st)
-        services = []
+        services = {}
         for sock in self.sockets:
             try:
                 sock.sendto(bytes(msg, "ASCII"), (SSDP_ADDR, SSDP_PORT))
                 data = sock.recv(1024)
                 srv = parse_ssdp_response(data)
-                services.append(srv)
+                key = tuple(sorted(srv.items()))
+                services[key] = srv
             except socket.timeout:
+                pass
+            except OSError:
                 pass
             except KeyError:
                 pass
-        return services
+        return services.values()
