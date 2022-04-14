@@ -150,13 +150,15 @@ class Camera
             {
                 log("Changing camera function: " + val.target.value);
                 camera.camera.setCameraFunction([val.target.value]);
-                // Wait for transition...
+                // Wait for transition. This is unreliable though, so reload UI
+                // again after a little while.
                 camera.camera.getEvent([true]);
                 camera.setup_base_ui();
                 if (val.target.value == "Contents Transfer")
                 {
                     setTimeout(function() { updateFileTree(); }, 5000);
                 }
+                setTimeout(function() { camera.setup_base_ui(); }, 2000);
             };
             div.appendChild(input);
             div.appendChild(txt);
@@ -271,7 +273,8 @@ class Camera
             {
                 if (shootMode == "still")
                 {
-                    camera.camera.awaitTakePicture();
+                    camera.camera.actTakePicture();
+                    setTimeout(function() {camera.setup_base_ui();}, 2000);
                 }
                 else if (shootMode == "movie")
                 {
