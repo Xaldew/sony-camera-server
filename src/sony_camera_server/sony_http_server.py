@@ -16,9 +16,9 @@ import threading
 import queue
 import logging
 
-import ssdp
-import sony_imgdev
-import sony_streams
+from . import ssdp
+from . import sony_imgdev
+from . import sony_streams
 
 
 class SonyRequestHandler(http.server.SimpleHTTPRequestHandler):

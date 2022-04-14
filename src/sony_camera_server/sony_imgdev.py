@@ -16,7 +16,7 @@ import functools
 import logging
 
 from xml.etree import cElementTree
-import xml2dict
+from . import xml2dict
 
 
 UPnPService = collections.namedtuple("UPnPService", ["SCPDURL",

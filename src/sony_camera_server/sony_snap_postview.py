@@ -11,8 +11,8 @@ import logging
 import datetime
 import shutil
 
-import sony_imgdev
-import ssdp
+from . import sony_imgdev
+from . import ssdp
 
 
 def snap_picture(dev):

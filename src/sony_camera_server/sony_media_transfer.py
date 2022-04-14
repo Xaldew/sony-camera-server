@@ -10,8 +10,8 @@ import argparse
 import logging
 import shutil
 
-import ssdp
-import sony_imgdev
+from . import ssdp
+from . import sony_imgdev
 
 
 def dump_files(devs, view, output_dir):
