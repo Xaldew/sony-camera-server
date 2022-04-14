@@ -122,7 +122,12 @@ def parse_arguments(argv):
     return parser.parse_args(argv)
 
 
-if __name__ == '__main__':
+def run():
+    """Run the application."""
     ARGS = parse_arguments(sys.argv[1:])
     logging.basicConfig(level=ARGS.verbosity)
-    sys.exit(main(ARGS.output, ARGS.delete))
+    return main(ARGS.output, ARGS.delete)
+
+
+if __name__ == '__main__':
+    sys.exit(run())

@@ -421,7 +421,12 @@ def parse_arguments(argv):
     return parser.parse_args(argv)
 
 
-if __name__ == '__main__':
+def run():
+    """Run the application."""
     ARGS = parse_arguments(sys.argv[1:])
     logging.basicConfig(level=ARGS.verbosity)
-    sys.exit(start_mjpeg_stream(ARGS.bind, ARGS.port))
+    return start_mjpeg_stream(ARGS.bind, ARGS.port)
+
+
+if __name__ == '__main__':
+    sys.exit(run())
