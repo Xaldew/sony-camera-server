@@ -71,6 +71,17 @@ This was intended as a quick replacement for typical
 download it using the "postview" feature of the camera, which is the quickest
 way of taking and extracting still images from the camera.
 
+```
+ ls
+docs  img  LICENSE  README.md  src
+ python3 src/sony_snap_postview.py --delete
+ ls
+docs  img  LICENSE  pict160229_2308040000.JPG  README.md  src
+ python3 src/sony_snap_postview.py --delete out.jpeg
+ ls
+docs  img  LICENSE  out.jpeg  pict160229_2308040000.JPG  README.md  src
+
+```
 
 ## Dump File Tree
 
@@ -78,6 +89,28 @@ Lastly, I wanted a simple method for quickly dumping all media present on the
 device, for which this script basically does. Depending on flags, it will dump
 either in a 'flat' view, or a 'date' view.
 
+```
+ python3 src/sony_media_transfer.py -f date
+ tree HDR-AS50/
+HDR-AS50/
+├── 20160213
+│   ├── DSC00193.JPG
+│   ├── DSC00194.JPG
+│   ├── DSC00195.JPG
+│   └── DSC00196.JPG
+├── 20160223
+│   └── DSC00197.JPG
+├── 20160225
+│   └── MAH00198.MP4
+├── 20160226
+│   ├── DSC00201.JPG
+│   ├── MAH00199.MP4
+│   └── MAH00200.MP4
+└── 20160229
+    ├── DSC00203.JPG
+    ├── DSC00204.JPG
+    └── MAH00207.MP4
+```
 
 # Unimplemented Features
 
