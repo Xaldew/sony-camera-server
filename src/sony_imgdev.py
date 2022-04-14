@@ -7,6 +7,7 @@
 
 import re
 import os
+import time
 import socket
 import collections
 import urllib.request
@@ -29,6 +30,10 @@ ScalarWebAPI = collections.namedtuple("ScalarWebAPI", ["Services",
                                                        "DefaultFunction"])
 
 ScalarWebService = collections.namedtuple("ScalarWebService", ["type", "url"])
+
+
+class SonyDeviceError(Exception):
+    """A class for miscellaneous Sony Device Errors."""
 
 
 def parse_upnp_device_definition(upnp_dd):
@@ -398,24 +403,104 @@ class SonyImagingDevice:
         return res
 
 
-def create_sony_imaging_device(ssdp):
-    """Attempt to create a Sony Imaging Device.
-
-    Note: Creates an imaging device from the first matching SSDP device, for
-    more control over network or services, adjust the discoverer parameters.
+def get_status(dev):
+    """Retrieve the current status of the device.
 
     .. Keyword Arguments:
-    :param ssdp: A SSDP discoverer.
+    :param dev: The device to query.
+
+    .. Returns:
+    :returns: The current status of the camera.
+    :rtype: A string.
+
+    """
+    ev = dev.camera.getEvent(params=[False])
+    if "result" not in ev:
+        raise SonyDeviceError("Unexpected response from getEvent")
+    return ev["result"][1]["cameraStatus"]
+
+
+def await_state(dev, state, tries=10, sleep_secs=1):
+    """Await state change on the device up to the specified number of tries.
+
+    .. Keyword Arguments:
+    :param dev: The device to query.
+    :param state: The state to wait for.
+    :param tries: The number of attempts (default 10).
+    :param sleep_secs: Number of seconds to sleep between attempts (default 1).
+
+    """
+    for t in range(0, tries):
+        camera_state = get_status(dev)
+        if camera_state == state:
+            return
+        time.sleep(sleep_secs)
+    raise SonyDeviceError(f"Device state not reached after {tries} attempts")
+
+
+def find_files_uri(dev, uri, view):
+    """List all files in the given URI."""
+    arg = {"uri": uri, "view": view}
+    res = dev.avContent.getContentCount(params=[arg])
+    res = res.get("result", [{"count": 0}])
+    cnt = res[0]["count"]
+    iters = (cnt > 0) + cnt // 100
+    for i in range(0, iters):
+        carg = {"uri": uri,
+                "stIdx": i * 100,
+                "cnt": 100,
+                "view": view}
+        res = dev.avContent.getContentList(params=[carg])
+        contents = res.get("result", [[]])
+        for f in contents[0]:
+            yield f
+
+
+def sony_media_walk(dev, view):
+    """Walk over the media hierarchy on the Sony Imaging Device."""
+    res = dev.avContent.getSchemeList()
+    schemes = res.get("result", [[]])
+    srcs = []
+    for sch in schemes:
+        res = dev.avContent.getSourceList(params=sch)
+        storage = res.get("result", [[]])
+        srcs.extend(storage[0])
+    for s in srcs:
+        iters = [("", find_files_uri(dev, s["source"], view))]
+        while iters:
+            base, files = iters.pop()
+            for f in files:
+                if f.get("contentKind", "") == "directory":
+                    folder = os.path.join(base, f.get("title", ""))
+                    rec = find_files_uri(dev, f.get("uri", ""), view)
+                    iters.append((folder, rec))
+                yield base, f
+
+
+def find_devices(scan, fast_setup=False):
+    """Attempt to create a Sony Imaging Device.
+
+    Note: For more control over network or service discoverer, adjust the
+    discoverer parameters.
+
+    .. Keyword Arguments:
+    :param scan: A SSDP discoverer.
+    :param fast_setup: Should devices use fast_setup? (default False)
 
     .. Types:
-    :type ssdp: A SSDPDiscoverer instance.
+    :type scan: A SSDPDiscoverer instance.
+    :type fast_setup: A boolean.
 
     .. Returns:
     :returns: A SonyImagingDevice
 
     """
-    query = ssdp.query()
-    for rsp in query:
-        if ("SonyImagingDevice" in rsp.get("server", "") and "location" in rsp):
-            return SonyImagingDevice(rsp["location"])
-    raise KeyError("Unable to find any SonyImagingDevice")
+    devices = dict()
+    for rsp in scan.query():
+        if "SonyImagingDevice" not in rsp.get("server", ""):
+            continue
+        if "location" not in rsp:
+            continue
+        devices[rsp["location"]] = rsp
+    return [SonyImagingDevice(d, fast_setup=fast_setup)
+            for d in devices.keys()]
