@@ -1,8 +1,5 @@
 # Sony Remote Camera API Python Bindings
 
-This started as a copy of Bloodevil/sony_camera_api, but rather quickly grew to
-a completely independent project.
-
 The motivation for this is quite simple: I own a Sony HDR AS50, a rather nice
 little action camera. However, I'm no longer really using it "actively", so I
 figured I would try to repurpose it for something else, such as a turning it
@@ -39,10 +36,23 @@ implement a number of applications:
 
 # Applications
 
+## Installation
+
+To install the package and the following applications use `pip`:
+
+```
+pip install sony-camera-server
+```
+
+
 ## Local Camera Web-server
 
 This is arguably the most important feature of this project: Create a web-server
 for interacting with the camera, as seen below:
+
+```
+venv/bin/sony-camera-server
+```
 
 ![web-server](./img/camera-web-server.png)
 
@@ -74,10 +84,10 @@ way of taking and extracting still images from the camera.
 ```
 > ls
 docs  img  LICENSE  README.md  src
-> python3 src/sony_snap_postview.py --delete
+> venv/bin/sony-snap-postview --delete
 > ls
 docs  img  LICENSE  pict160229_2308040000.JPG  README.md  src
-> python3 src/sony_snap_postview.py --delete out.jpeg
+> venv/bin/sony-snap-postview.py --delete out.jpeg
 > ls
 docs  img  LICENSE  out.jpeg  pict160229_2308040000.JPG  README.md  src
 >
@@ -90,7 +100,7 @@ device, for which this script basically does. Depending on flags, it will dump
 either in a 'flat' view, or a 'date' view.
 
 ```
-> python3 src/sony_media_transfer.py -f date
+> python3 sony-media-transfer.py -f date
 > tree HDR-AS50/
 HDR-AS50/
 ├── 20160213
@@ -111,12 +121,6 @@ HDR-AS50/
     ├── DSC00204.JPG
     └── MAH00207.MP4
 ```
-
-# Ongoing
-
-I am currently working on packaging this and making it available on
-[PyPI](https://pypi.org/).
-
 
 # Unimplemented Features
 
