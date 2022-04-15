@@ -87,7 +87,25 @@ docs  img  LICENSE  README.md  src
 > venv/bin/sony-snap-postview --delete
 > ls
 docs  img  LICENSE  pict160229_2308040000.JPG  README.md  src
-> venv/bin/sony-snap-postview.py --delete out.jpeg
+> venv/bin/sony-snap-postview --delete out.jpeg
+> ls
+docs  img  LICENSE  out.jpeg  pict160229_2308040000.JPG  README.md  src
+>
+```
+
+## Snap Picture and Transfer Image(s)
+
+Same as the previous script, but instead of using postview, enable contents
+transfer and download the image that way. E.g., this is needed to retrieve the
+files in their original format on the HDR AS50.
+
+```
+> ls
+docs  img  LICENSE  README.md  src
+> venv/bin/sony-snap-transfer --delete
+> ls
+docs  img  LICENSE  pict160229_2308040000.JPG  README.md  src
+> venv/bin/sony-snap-transfer --delete out.jpeg
 > ls
 docs  img  LICENSE  out.jpeg  pict160229_2308040000.JPG  README.md  src
 >
@@ -100,7 +118,7 @@ device, for which this script basically does. Depending on flags, it will dump
 either in a 'flat' view, or a 'date' view.
 
 ```
-> python3 sony-media-transfer.py -f date
+> venv/bin/sony-media-transfer -f date
 > tree HDR-AS50/
 HDR-AS50/
 ├── 20160213
