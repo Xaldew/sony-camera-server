@@ -84,9 +84,9 @@ def main(output, delete):
         if not output:
             parse_res = urllib.parse.urlparse(postview_url)
             output = os.path.basename(parse_res.path)
-        with (open(output, "wb") as fw,
-              urllib.request.urlopen(postview_url) as resp):
-            shutil.copyfileobj(resp, fw)
+        with open(output, "wb") as fw:
+            with urllib.request.urlopen(postview_url) as resp:
+                shutil.copyfileobj(resp, fw)
         if delete:
             delete_picture(devs[0], postview_url)
         return 0
