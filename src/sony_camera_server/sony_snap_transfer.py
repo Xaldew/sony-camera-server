@@ -126,7 +126,7 @@ def main(output, delete):
     """Find a camera, snap a picture and download it."""
     try:
         scan = ssdp.SSDPDiscoverer(ssdp.SONY_SERVICE_TYPE)
-        devs = sony_imgdev.find_devices(scan)
+        devs = sony_imgdev.find_devices(scan, fast_setup=True)
         logging.info(f"Devices: {devs}")
         if not devs:
             print("No device found.")

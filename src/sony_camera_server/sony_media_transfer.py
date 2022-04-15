@@ -59,7 +59,7 @@ def main(view, output_dir):
     """Start running the med Streamer."""
     try:
         scan = ssdp.SSDPDiscoverer(ssdp.SONY_SERVICE_TYPE)
-        devs = sony_imgdev.find_devices(scan)
+        devs = sony_imgdev.find_devices(scan, fast_setup=True)
         logging.info(f"Devices: {devs}")
         dump_files(devs, view, output_dir)
         return 0
