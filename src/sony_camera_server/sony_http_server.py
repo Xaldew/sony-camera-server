@@ -97,7 +97,7 @@ class SonyRequestHandler(http.server.SimpleHTTPRequestHandler):
         if not dev:
             self.send_response(http.HTTPStatus.SERVICE_UNAVAILABLE)
             return
-        for f in self._find_files():
+        for _, f in sony_imgdev.sony_media_walk(dev, "flat"):
             if f["uri"] == os.path.basename(self.path):
                 url = f["content"]["original"][0]["url"]
                 try:
@@ -123,32 +123,6 @@ class SonyRequestHandler(http.server.SimpleHTTPRequestHandler):
                 return "image/x-sony-arw"
         elif fil["contentKind"].startswith("movie"):
             return "video/mp4"
-
-    def _find_files(self):
-        """Iterate over all files on the device."""
-        dev = self.server.active_device
-        res = dev.avContent.getSchemeList()
-        schemes = res.get("result", [[]])
-        srcs = []
-        for sch in schemes:
-            res = dev.avContent.getSourceList(params=sch)
-            storage = res.get("result", [[]])
-            srcs.extend(storage[0])
-        for s in srcs:
-            arg = {"uri": s["source"], "view": "flat"}
-            res = dev.avContent.getContentCount(params=[arg])
-            res = res.get("result", [{"count": 0}])
-            cnt = res[0]["count"]
-            iters = (cnt > 0) + cnt // 100
-            for i in range(0, iters):
-                carg = {"uri": s["source"],
-                        "stIdx": i * 100,
-                        "cnt": 100,
-                        "view": "flat"}
-                res = dev.avContent.getContentList(params=[carg])
-                contents = res.get("result", [[]])
-                for f in contents[0]:
-                    yield f
 
     def do_GET(self):
         """Handle the HTTP GET request."""
