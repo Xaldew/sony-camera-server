@@ -43,9 +43,9 @@ def dump_files(devs, view, output_dir):
                             file_name = os.path.join(out, fold, fil_orig)
                         url = orig["url"]
                         try:
-                            with (open(file_name, "wb") as fw,
-                                  urllib.request.urlopen(url) as resp):
-                                shutil.copyfileobj(resp, fw)
+                            with open(file_name, "wb") as fw:
+                                with urllib.request.urlopen(url) as resp:
+                                    shutil.copyfileobj(resp, fw)
                         except (urllib.error.HTTPError, urllib.error.URLError):
                             logging.warning(f"Unable to download: {url}")
             if state != "ContentsTransfer":
