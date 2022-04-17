@@ -74,38 +74,20 @@ Also note that this was built using the built-in Python HTTP server, thus: **DO
 NOT RUN THIS ON AN UNTRUSTED NETWORK!**
 
 
-## Snap Picture with Postview Transfer
+## Snap Pictures
 
 This was intended as a quick replacement for typical
 [ghoto2](http://www.gphoto.org/) scripts: Detect the camera, take a picture and
-download it using the "postview" feature of the camera, which is the quickest
-way of taking and extracting still images from the camera.
+optionally download it using either the "postview" feature or with the original
+quality.
 
 ```
 > ls
 docs  img  LICENSE  README.md  src
-> venv/bin/sony-snap-postview --delete
+> venv/bin/sony-snap-picture --delete
 > ls
 docs  img  LICENSE  pict160229_2308040000.JPG  README.md  src
 > venv/bin/sony-snap-postview --delete out.jpeg
-> ls
-docs  img  LICENSE  out.jpeg  pict160229_2308040000.JPG  README.md  src
->
-```
-
-## Snap Picture and Transfer Image(s)
-
-Same as the previous script, but instead of using postview, enable contents
-transfer and download the image that way. E.g., this is needed to retrieve the
-files in their original format on the HDR AS50.
-
-```
-> ls
-docs  img  LICENSE  README.md  src
-> venv/bin/sony-snap-transfer --delete
-> ls
-docs  img  LICENSE  pict160229_2308040000.JPG  README.md  src
-> venv/bin/sony-snap-transfer --delete out.jpeg
 > ls
 docs  img  LICENSE  out.jpeg  pict160229_2308040000.JPG  README.md  src
 >
@@ -140,6 +122,16 @@ HDR-AS50/
     └── MAH00207.MP4
 ```
 
+## Erase All Files
+
+As advertised: Delete all files on the selected device. It will prompt before
+executing the command but use with caution to avoid data-loss!
+
+```
+> venv/bin/sony-media-erase --device-name HDR-AS50
+```
+
+
 # Unimplemented Features
 
 Barring bugs, most features that the API supports should be
@@ -148,6 +140,8 @@ implemented. However, I personally have not found a reasonable use-case for the
 JPEG frames to the client. Thus, I haven't put any effort into implementing any
 support for that.
 
+The 'continuous shooting mode' is currently not implemented.
+
 Currently, the raw API will not properly find most parameter candidates if the
 camera is started in "Contents Transfer" mode. This appears to be a limitation
 in the cameras themselves, as the API does not mention anything regarding this.
@@ -155,7 +149,15 @@ in the cameras themselves, as the API does not mention anything regarding this.
 Note also that other cameras should support a lot more settings than the HDR
 AS50, but as of right now I have no way of testing any of those.
 
+
 # Possible Camera Bugs
 
 The HDR AS50 currently goes into a non-responsive state if the camera view angle
 mode is changed from wide to narrow while in the "intervalstill" shooting mode.
+
+Rapidly sending commands to a camera and/or requesting it to change camera
+function (transfer/remote-shooting) may cause the camera to become partially
+unresponsive (no longer shooting, menus not working, etc). This is presumably
+some kind of live-lock on the camera, which requires pulling out the battery to
+resolve. This problem prompted the development of the device cache to reduce the
+number of calls to the device during setup.
