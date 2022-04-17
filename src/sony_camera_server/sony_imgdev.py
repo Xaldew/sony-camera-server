@@ -103,11 +103,21 @@ class SonyEndPoint:
         self.id = self.id % self.ID_MAX + 1
         return ret
 
+    def unimplemented_method(self, *_args, **_kwargs):
+        """Called when finding an unimplemented method."""
+        return {"error": [501, "Not Implemented"], "id": self.id}
+
     def __getattr__(self, name):
         """Call when accessing a non-existing endpoint method."""
-        def unimplemented_method(*args, **kwargs):
-            return {"error": [501, "Not Implemented"], "id": self.id}
-        return unimplemented_method
+        return self.unimplemented_method
+
+    def __getstate__(self):
+        """When pickling this class, use this state."""
+        return self.__dict__.copy()
+
+    def __setstate__(self, d):
+        """When un-pickling this class, use this method to add data."""
+        self.__dict__.update(d)
 
 
 class SonyImagingDevice:
