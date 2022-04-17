@@ -390,7 +390,7 @@ class SonyImagingDevice:
         req.add_header('Content-Type', 'application/json; charset=utf-8')
         body_utf8 = json.dumps(args)
         body = body_utf8.encode("utf-8")
-        logging.info(f"MSG {body_utf8}")
+        logging.debug(f"MSG {body_utf8}")
         res = {}
         try:
             timeout = self.timeout_seconds
@@ -409,7 +409,7 @@ class SonyImagingDevice:
             res = {"error": [504, "Invalid data in returned JSON"]}
         except urllib.error.URLError as err:
             res = {"error": [601, err.reason], "id": id}
-        logging.info(f"RES {res}")
+        logging.debug(f"RES {res}")
         return res
 
 
