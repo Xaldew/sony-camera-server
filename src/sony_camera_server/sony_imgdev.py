@@ -426,7 +426,7 @@ def get_status(dev):
     """
     ev = dev.camera.getEvent(params=[False])
     if "result" not in ev:
-        raise SonyDeviceError("Unexpected response from getEvent")
+        raise SonyDeviceError("Unexpected response from getEvent: %s", ev)
     return ev["result"][1]["cameraStatus"]
 
 

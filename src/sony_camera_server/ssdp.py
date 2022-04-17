@@ -67,9 +67,7 @@ class SSDPDiscoverer:
                     sock.setsockopt(socket.IPPROTO_IP,
                                     IP_BOUND_IF,
                                     idx)
-                    # if (setsockopt(socket_fd, IPPROTO_IP, IP_BOUND_IF, &index, sizeof(index)) == -1) {
-                    #         return errno;
-            except AttributeError as err:
+            except AttributeError:
                 pass
             self.sockets.append(sock)
 
