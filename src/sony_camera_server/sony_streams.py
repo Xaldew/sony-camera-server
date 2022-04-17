@@ -7,6 +7,7 @@ import struct
 import threading
 import http.client
 import urllib.request
+import logging
 
 # pylint: disable=redefined-builtin
 
@@ -165,8 +166,12 @@ class LiveviewStreamThread(threading.Thread):
             except (http.client.IncompleteRead,
                     urllib.error.HTTPError,
                     urllib.error.URLError,
-                    ValueError):
+                    ValueError) as err:
+                logging.info("Streamer temporary failure: %s", err)
                 self._backoff()
+            except Exception as err:
+                logging.error("Streamer critical failure: %s", err)
+                raise err
 
     def _backoff(self):
         """Back-off before trying to connect again."""

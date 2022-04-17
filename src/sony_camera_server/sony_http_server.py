@@ -17,6 +17,7 @@ import queue
 import logging
 
 from . import ssdp
+from . import device_cache
 from . import sony_imgdev
 from . import sony_streams
 
@@ -238,13 +239,13 @@ class SonyCameraServer(http.server.ThreadingHTTPServer):
         super().__init__(server_address, RequestHandlerClass)
         self.streamer = streamer
         self.discover = ssdp.SSDPDiscoverer(ssdp.SONY_SERVICE_TYPE)
+        self.cache = device_cache.DeviceCache()
         self.devices = []
         self.active_device = None
         self.liveview = None
         self.status = None
-
         self._find_devices()
-        if len(self.devices) == 1:
+        if len(self.devices) >= 1:
             self._change_device(self.devices[0].device_name)
 
     def is_accessible_endpoint(self, ep):
@@ -301,22 +302,8 @@ class SonyCameraServer(http.server.ThreadingHTTPServer):
             self.liveview.join()
 
     def _find_devices(self):
-        devices = list()
-        for rsp in self.discover.query():
-            if "SonyImagingDevice" not in rsp.get("server", ""):
-                continue
-            if "location" not in rsp:
-                continue
-            # Don't create a new device if the same one already exist.
-            for d in self.devices:
-                if d.location == rsp["location"]:
-                    devices.append(d)
-                    break
-            else:
-                dev = sony_imgdev.SonyImagingDevice(rsp["location"])
-                devices.append(dev)
-        self.devices = devices
-        return devices
+        self.devices = self.cache.scan_devices(self.discover)
+        return self.devices
 
     def _update_status(self):
         """Attempt to update device status."""
@@ -355,10 +342,10 @@ class SonyCameraServer(http.server.ThreadingHTTPServer):
         return self.status[3]["liveviewStatus"]
 
 
-def start_mjpeg_stream(bind, port):
+def start_mjpeg_stream(bind, port, liveview_threads, liveview_fps):
     """Start running a MJPEG Streamer."""
     try:
-        streamer = MJPEGStreamer()
+        streamer = MJPEGStreamer(max_threads=liveview_threads, fps=liveview_fps)
         server = SonyCameraServer((bind, port), SonyRequestHandler, streamer)
         server.serve_forever()
         return 0
@@ -389,9 +376,16 @@ def parse_arguments(argv):
     parser.add_argument("-b", "--bind", metavar="IP",
                         default="localhost",
                         help="Network interface to bind to.")
-    parser.add_argument("-v", "--verbosity", metavar="N",
-                        action="store_const", const=logging.INFO,
-                        help="Be more verbose.")
+    parser.add_argument("-v", "--verbosity", metavar="N", type=int,
+                        default=logging.WARNING,
+                        choices=range(logging.NOTSET, logging.CRITICAL),
+                        help="Set logging verbosity level.")
+    parser.add_argument("-f", "--liveview-fps", metavar="FPS", type=float,
+                        default=15.0,
+                        help="Target FPS for the liveview stream.")
+    parser.add_argument("-t", "--liveview-threads", metavar="N", type=int,
+                        default=4,
+                        help="Number of allowed streamer threads at once.")
     return parser.parse_args(argv)
 
 
@@ -399,7 +393,8 @@ def run():
     """Run the application."""
     ARGS = parse_arguments(sys.argv[1:])
     logging.basicConfig(level=ARGS.verbosity)
-    return start_mjpeg_stream(ARGS.bind, ARGS.port)
+    return start_mjpeg_stream(ARGS.bind, ARGS.port,
+                              ARGS.liveview_threads, ARGS.liveview_fps)
 
 
 if __name__ == '__main__':
