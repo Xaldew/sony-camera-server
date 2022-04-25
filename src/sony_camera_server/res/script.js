@@ -9,6 +9,7 @@ class Camera
         this.zooming = "idle";
         this.zoom_timeout_id = 0;
         this.color_temp_enabled = true;
+        this.cont_shooting = false;
 
         this.find_endpoints();
         this.find_methods();
@@ -211,13 +212,13 @@ class Camera
         reload.value = "Reload UI";
         reload.className = "action";
         reload.onclick = function() { camera.setup_base_ui(); };
+        actionNode.appendChild(reload);
 
         // Can't shoot while in contents transfer mode.
         if (events.length < 13 ||
             events[12] === null ||
             events[12].currentCameraFunction == "Contents Transfer")
         {
-            actionNode.appendChild(reload);
             return;
         }
 
@@ -255,7 +256,6 @@ class Camera
         }
         if (events.length < 22 || events[21] === null)
         {
-            actionNode.appendChild(reload);
             return;
         }
 
@@ -265,58 +265,155 @@ class Camera
         console.log(status);
         if (status == "IDLE" || status == "NotReady")
         {
-            let shoot = document.createElement("input");
-            shoot.type = "button";
-            shoot.value = "Shoot";
-            shoot.className = "action";
-            shoot.onclick = function()
+            if (shootMode == "still")
             {
-                if (shootMode == "still")
+                // 2 Options: Shoot or Continuous Shooting
+
+                // Single shot.
+                let shoot = document.createElement("input");
+                shoot.type = "button";
+                shoot.value = "Shoot";
+                shoot.className = "action";
+                shoot.onclick = function()
                 {
                     camera.camera.actTakePicture();
                     setTimeout(function() {camera.setup_base_ui();}, 2000);
                 }
-                else if (shootMode == "movie")
+                actionNode.appendChild(shoot);
+
+                // Continuous shooting available?
+                if (events.length > 39 &&
+                    events[38] !== null &&
+                    (events[38].contShootingMode == "continuous" ||
+                     events[38].contShootingMode == "Spd Priority Cont."))
+                {
+                    let contShoot = document.createElement("input");
+                    contShoot.type = "button";
+                    contShoot.value = "ContShoot";
+                    contShoot.className = "action";
+                    contShoot.onclick = function()
+                    {
+                        camera.camera.startContShooting();
+                        camera.cont_shooting = true;
+                    }
+                    actionNode.appendChild(contShoot);
+                }
+            }
+            else if (shootMode == "movie")
+            {
+                // Only one option: Start recording.
+                let shoot = document.createElement("input");
+                shoot.type = "button";
+                shoot.value = "Shoot";
+                shoot.className = "action";
+                shoot.onclick = function()
                 {
                     camera.camera.startMovieRec();
+                    camera.setup_base_ui();
                 }
-                else if (shootMode == "intervalstill")
+                actionNode.appendChild(shoot);
+            }
+            else if (shootMode == "intervalstill")
+            {
+                // Only one option: Start recording.
+                let shoot = document.createElement("input");
+                shoot.type = "button";
+                shoot.value = "Shoot";
+                shoot.className = "action";
+                shoot.onclick = function()
                 {
                     camera.camera.startIntervalStillRec();
+                    camera.setup_base_ui();
                 }
-                else if (shootMode == "looprec")
+                actionNode.appendChild(shoot);
+            }
+            else if (shootMode == "looprec")
+            {
+                // Only one option: Start recording.
+                let shoot = document.createElement("input");
+                shoot.type = "button";
+                shoot.value = "Shoot";
+                shoot.className = "action";
+                shoot.onclick = function()
                 {
                     camera.camera.startLoopRec();
+                    camera.setup_base_ui();
                 }
-                camera.setup_base_ui();
-            };
-            actionNode.appendChild(shoot);
+                actionNode.appendChild(shoot);
+            }
         }
         else
         {
-            let stop = document.createElement("input");
-            stop.type = "button";
-            stop.value = "Stop";
-            stop.className = "action";
-            stop.onclick = function()
+            if (shootMode == "still" && this.cont_shooting)
             {
-                if (shootMode == "movie")
+                // Performing continuous shooting, click to stop it.
+                let stop = document.createElement("input");
+                stop.type = "button";
+                stop.value = "Stop";
+                stop.className = "action";
+                stop.onclick = function()
+                {
+                    camera.stopContShooting();
+                    this.cont_shooting = false;
+                    camera.setup_base_ui();
+                };
+                actionNode.appendChild(stop);
+            }
+            else if (shootMode == "movie")
+            {
+                let stop = document.createElement("input");
+                stop.type = "button";
+                stop.value = "Stop";
+                stop.className = "action";
+                stop.onclick = function()
                 {
                     camera.camera.stopMovieRec();
-                }
-                else if (shootMode == "intervalstill")
+                    camera.setup_base_ui();
+                };
+                actionNode.appendChild(stop);
+            }
+            else if (shootMode == "intervalstill")
+            {
+                let stop = document.createElement("input");
+                stop.type = "button";
+                stop.value = "Stop";
+                stop.className = "action";
+                stop.onclick = function()
                 {
                     camera.camera.stopIntervalStillRec();
-                }
-                else if (shootMode == "looprec")
+                    camera.setup_base_ui();
+                };
+                actionNode.appendChild(stop);
+            }
+            else if (shootMode == "looprec")
+            {
+                let stop = document.createElement("input");
+                stop.type = "button";
+                stop.value = "Stop";
+                stop.className = "action";
+                stop.onclick = function()
                 {
                     camera.camera.stopLoopRec();
-                }
-                camera.setup_base_ui();
-            };
-            actionNode.appendChild(stop);
+                    camera.setup_base_ui();
+                };
+                actionNode.appendChild(stop);
+            }
         }
-        actionNode.appendChild(reload);
+
+        // Add button for OnePush WhiteBalance mode.
+        if (status == "IDLE")
+        {
+            let autoTemp = document.createElement("input");
+            autoTemp.type = "button";
+            autoTemp.value = "Auto Fixed WB";
+            autoTemp.className = "action";
+            autoTemp.onclick = function()
+            {
+                camera.camera.actWhiteBalanceOnePushCustom();
+                setTimeout(function() {camera.setup_base_ui();}, 500);
+            };
+            actionNode.appendChild(autoTemp);
+        }
 
         // Add Zoom in/out buttons if supported.
         if (events.length >= 37 &&
