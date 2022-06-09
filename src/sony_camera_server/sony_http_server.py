@@ -184,7 +184,7 @@ class MJPEGStreamer:
         self.act_threads = 0
         self.max_threads = max_threads
         self.thread_map = {}
-        self.queues = [queue.Queue() for _ in range(self.max_threads)]
+        self.queues = [queue.Queue(10 * fps) for _ in range(self.max_threads)]
         self.enabled = [False for _ in range(self.max_threads)]
 
     def _next_idx(self):
