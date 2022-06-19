@@ -104,7 +104,7 @@ class SonyEndPoint:
         return ret
 
     def unimplemented_method(self, *_args, **_kwargs):
-        """Called when finding an unimplemented method."""
+        """Call when finding an unimplemented method."""
         return {"error": [501, "Not Implemented"], "id": self.id}
 
     def __getattr__(self, name):
